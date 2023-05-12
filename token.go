@@ -1,4 +1,4 @@
-package main
+package glox
 
 import "fmt"
 
@@ -7,15 +7,6 @@ type Token struct {
 	Lexeme  string
 	Literal interface{}
 	Line    uint32
-}
-
-func NewToken(_type TokenType, lexeme string, literal interface{}, line uint32) Token {
-	return Token{
-		Type:    _type,
-		Lexeme:  lexeme,
-		Literal: literal,
-		Line:    line,
-	}
 }
 
 func (t *Token) String() string {

@@ -1,4 +1,4 @@
-package main
+package glox
 
 type TokenType uint32
 

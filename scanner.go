@@ -1,4 +1,4 @@
-package main
+package glox
 
 import "strconv"
 
@@ -22,12 +22,15 @@ var keywords = map[string]TokenType{
 }
 
 type Scanner struct {
-	source string
-	tokens []Token
+	source	string
 
 	start   uint32
 	current uint32
 	line    uint32
+
+	Errors	chan Errno
+	Tokens	chan *Token
+	Done 	chan bool
 }
 
 // NewScanner returns a new Scanner.
@@ -37,18 +40,21 @@ func NewScanner(source string) *Scanner {
 		start:   0,
 		current: 0,
 		line:    1,
+		Errors: make(chan Errno),
+		Tokens: make(chan *Token),
+		Done: make(chan bool),
 	}
 }
 
 // ScanTokens returns a slice of tokens representing the source text.
-func (sc *Scanner) ScanTokens() []Token {
+func (sc *Scanner) ScanTokens() {
 	for !sc.isAtEnd() {
 		sc.start = sc.current
 		sc.scanToken()
 	}
 
 	sc.addToken(EOF)
-	return sc.tokens
+	sc.Done <- true
 }
 
 func (sc *Scanner) scanToken() {
@@ -123,14 +129,14 @@ func (sc *Scanner) scanToken() {
 		sc.string()
 
 	default:
-		if sc.isDigit(c) {
+		if isDigit(c) {
 			// Numbers
 			sc.number()
-		} else if sc.isAlpha(c) {
+		} else if isAlpha(c) {
 			// Identifiers
 			sc.identifier()
 		} else {
-			LoxError(sc.line, "Unexpected character.")
+			sc.Errors <- NewErrno(sc.line, "", "Unexpected character.")
 		}
 	}
 }
@@ -154,7 +160,7 @@ func (sc *Scanner) addTokenWithLiteral(_type TokenType, literal interface{}) {
 		text = sc.source[sc.start:sc.current]
 	}
 
-	sc.tokens = append(sc.tokens, NewToken(_type, text, literal, sc.line))
+	sc.Tokens <- &Token{Type: _type, Lexeme: text, Literal: literal, Line: sc.line}
 }
 
 func (sc *Scanner) match(expected byte) bool {
@@ -191,7 +197,7 @@ func (sc *Scanner) string() {
 	}
 
 	if sc.isAtEnd() {
-		LoxError(sc.line, "Unterminated string.")
+		sc.Errors <- NewErrno(sc.line, "", "Unterminated string.")
 		return
 	}
 
@@ -203,21 +209,17 @@ func (sc *Scanner) string() {
 	sc.addTokenWithLiteral(STRING, value)
 }
 
-func (sc *Scanner) isDigit(c byte) bool {
-	return c >= '0' && c <= '9'
-}
-
 func (sc *Scanner) number() {
-	for sc.isDigit(sc.peek()) {
+	for isDigit(sc.peek()) {
 		sc.advance()
 	}
 
 	// Look for a fractional part.
-	if sc.peek() == '.' && sc.isDigit(sc.peekNext()) {
+	if sc.peek() == '.' && isDigit(sc.peekNext()) {
 		// Consume the "."
 		sc.advance()
 
-		for sc.isDigit(sc.peek()) {
+		for isDigit(sc.peek()) {
 			sc.advance()
 		}
 	}
@@ -231,7 +233,7 @@ func (sc *Scanner) number() {
 }
 
 func (sc *Scanner) identifier() {
-	for sc.isAlphaNumeric(sc.peek()) {
+	for isAlphaNumeric(sc.peek()) {
 		sc.advance()
 	}
 
@@ -242,16 +244,6 @@ func (sc *Scanner) identifier() {
 	}
 	
 	sc.addToken(_type)
-}
-
-func (sc *Scanner) isAlpha(c byte) bool {
-	return (c >= 'a' && c <= 'z') ||
-		(c >= 'A' && c <= 'Z') ||
-		c == '_'
-}
-
-func (sc *Scanner) isAlphaNumeric(c byte) bool {
-	return sc.isAlpha(c) || sc.isDigit(c)
 }
 
 func (sc *Scanner) multilineComment() {
@@ -269,5 +261,19 @@ func (sc *Scanner) multilineComment() {
 		sc.advance()
 	}
 
-	LoxError(sc.line, "Multiline comment was not closed")
+	sc.Errors <- NewErrno(sc.line, "", "Multiline comment was not closed")
+}
+
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+func isAlpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		c == '_'
+}
+
+func isAlphaNumeric(c byte) bool {
+	return isAlpha(c) || isDigit(c)
 }
