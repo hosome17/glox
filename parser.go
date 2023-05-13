@@ -1,31 +1,17 @@
 package glox
 
-type ParserError struct {
-	message string
-}
-
-func NewParserError(message string) *ParserError {
-	return &ParserError{
-		message: message,
-	}
-}
-
-func (pe *ParserError) Error() string {
-	return pe.message
-}
-
 type Parser struct {
 	tokens  []Token
 	current uint32
 
-	runtime *Runtime
+	errorPrinter *ErrorPrinter
 }
 
-func NewParser(tokens []Token, runtime *Runtime) *Parser {
+func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 	return &Parser{
 		tokens:  tokens,
 		current: 0,
-		runtime: runtime,
+		errorPrinter: errorPrinter,
 	}
 }
 
@@ -260,7 +246,7 @@ func (p *Parser) consume(_type TokenType, message string) (Token, error) {
 }
 
 func (p *Parser) error(token Token, message string) error {
-	p.runtime.TokenError(token, message)
+	p.errorPrinter.TokenError(token, message)
 	return NewParserError(message)
 }
 

@@ -8,6 +8,6 @@ import (
 func main() {
 	args := os.Args[1:]
 
-	runtime := glox.NewRuntime()
-	runtime.Run(args)
+	g := glox.NewGlox()
+	g.Run(args)
 }

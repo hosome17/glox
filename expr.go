@@ -1,15 +1,15 @@
 package glox
 
 type ExprVisitor interface {
-    VisitBinaryExpr(expr *Binary) interface{}
-    VisitGroupingExpr(expr *Grouping) interface{}
-    VisitLiteralExpr(expr *Literal) interface{}
-    VisitUnaryExpr(expr *Unary) interface{}
-    VisitConditionalExpr(expr *Conditional) interface{}
+    VisitBinaryExpr(expr *Binary) (interface{}, error)
+    VisitGroupingExpr(expr *Grouping) (interface{}, error)
+    VisitLiteralExpr(expr *Literal) (interface{}, error)
+    VisitUnaryExpr(expr *Unary) (interface{}, error)
+    VisitConditionalExpr(expr *Conditional) (interface{}, error)
 }
 
 type Expr interface {
-    Accept(visitor ExprVisitor) interface{}
+    Accept(visitor ExprVisitor) (interface{}, error)
 }
 
 type Binary struct {
@@ -18,7 +18,7 @@ type Binary struct {
     Right Expr
 }
 
-func (b *Binary) Accept(visitor ExprVisitor) interface{} {
+func (b *Binary) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitBinaryExpr(b)
 }
 
@@ -26,7 +26,7 @@ type Grouping struct {
     Expression Expr
 }
 
-func (g *Grouping) Accept(visitor ExprVisitor) interface{} {
+func (g *Grouping) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitGroupingExpr(g)
 }
 
@@ -34,7 +34,7 @@ type Literal struct {
     Value interface{}
 }
 
-func (l *Literal) Accept(visitor ExprVisitor) interface{} {
+func (l *Literal) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitLiteralExpr(l)
 }
 
@@ -43,7 +43,7 @@ type Unary struct {
     Right Expr
 }
 
-func (u *Unary) Accept(visitor ExprVisitor) interface{} {
+func (u *Unary) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitUnaryExpr(u)
 }
 
@@ -53,7 +53,7 @@ type Conditional struct {
     Alternate Expr
 }
 
-func (c *Conditional) Accept(visitor ExprVisitor) interface{} {
+func (c *Conditional) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitConditionalExpr(c)
 }
 

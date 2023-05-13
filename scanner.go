@@ -31,18 +31,18 @@ type Scanner struct {
 	current uint32
 	line    uint32
 
-	runtime *Runtime
+	errorPrinter *ErrorPrinter
 }
 
 // NewScanner returns a new Scanner.
-func NewScanner(source string, runtime *Runtime) *Scanner {
+func NewScanner(source string, errorPrinter *ErrorPrinter) *Scanner {
 	return &Scanner{
 		source:  source,
 		tokens:  make([]Token, 0),
 		start:   0,
 		current: 0,
 		line:    1,
-		runtime: runtime,
+		errorPrinter: errorPrinter,
 	}
 }
 
@@ -140,7 +140,7 @@ func (sc *Scanner) scanToken() {
 			// Identifiers
 			sc.identifier()
 		} else {
-			sc.runtime.Error(sc.line, "Unexpected character.")
+			sc.errorPrinter.Error(sc.line, "Unexpected character.")
 		}
 	}
 }
@@ -201,7 +201,7 @@ func (sc *Scanner) string() {
 	}
 
 	if sc.isAtEnd() {
-		sc.runtime.Error(sc.line, "Unterminated string.")
+		sc.errorPrinter.Error(sc.line, "Unterminated string.")
 		return
 	}
 
@@ -265,7 +265,7 @@ func (sc *Scanner) multilineComment() {
 		sc.advance()
 	}
 
-	sc.runtime.Error(sc.line, "Multiline comment was not closed")
+	sc.errorPrinter.Error(sc.line, "Multiline comment was not closed")
 }
 
 func isDigit(c byte) bool {

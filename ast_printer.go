@@ -5,31 +5,32 @@ import "fmt"
 type AstPrinter struct {}
 
 func (ap *AstPrinter) Print(expr Expr) string {
-	return expr.Accept(ap).(string)
+	val, _ := expr.Accept(ap)
+	return val.(string)
 }
 
-func (ap *AstPrinter) VisitBinaryExpr(expr *Binary) interface{} {
-	return ap.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right)
+func (ap *AstPrinter) VisitBinaryExpr(expr *Binary) (interface{}, error) {
+	return ap.parenthesize(expr.Operator.Lexeme, expr.Left, expr.Right), nil
 }
 
-func (ap *AstPrinter) VisitGroupingExpr(expr *Grouping) interface{} {
-	return ap.parenthesize("group", expr.Expression)
+func (ap *AstPrinter) VisitGroupingExpr(expr *Grouping) (interface{}, error) {
+	return ap.parenthesize("group", expr.Expression), nil
 }
 
-func (ap *AstPrinter) VisitLiteralExpr(expr *Literal) interface{} {
+func (ap *AstPrinter) VisitLiteralExpr(expr *Literal) (interface{}, error) {
 	if expr.Value == nil {
-		return "nil"
+		return "nil", nil
 	}
 
-	return fmt.Sprint(expr.Value)
+	return fmt.Sprint(expr.Value), nil
 }
 
-func (ap *AstPrinter) VisitUnaryExpr(expr *Unary) interface{} {
-	return ap.parenthesize(expr.Operator.Lexeme, expr.Right)
+func (ap *AstPrinter) VisitUnaryExpr(expr *Unary) (interface{}, error) {
+	return ap.parenthesize(expr.Operator.Lexeme, expr.Right), nil
 }
 
-func (ap *AstPrinter) VisitConditionalExpr(expr *Conditional) interface{} {
-	return ap.parenthesize("?:", expr.Cond, expr.Consequent, expr.Alternate)
+func (ap *AstPrinter) VisitConditionalExpr(expr *Conditional) (interface{}, error) {
+	return ap.parenthesize("?:", expr.Cond, expr.Consequent, expr.Alternate), nil
 }
 
 func (ap *AstPrinter) parenthesize(name string, exprs ...Expr) string {
@@ -37,7 +38,8 @@ func (ap *AstPrinter) parenthesize(name string, exprs ...Expr) string {
 
 	buf += "(" + name
 	for _, expr := range exprs {
-		buf += " " + expr.Accept(ap).(string)
+		val, _ := expr.Accept(ap)
+		buf += " " + val.(string)
 	}
 	buf += ")"
 
