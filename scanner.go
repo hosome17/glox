@@ -1,6 +1,8 @@
 package glox
 
-import "strconv"
+import (
+	"strconv"
+)
 
 var keywords = map[string]TokenType{
 	"and":    AND,
@@ -22,39 +24,37 @@ var keywords = map[string]TokenType{
 }
 
 type Scanner struct {
-	source	string
+	source string
+	tokens []Token
 
 	start   uint32
 	current uint32
 	line    uint32
 
-	Errors	chan Errno
-	Tokens	chan *Token
-	Done 	chan bool
+	runtime *Runtime
 }
 
 // NewScanner returns a new Scanner.
-func NewScanner(source string) *Scanner {
+func NewScanner(source string, runtime *Runtime) *Scanner {
 	return &Scanner{
 		source:  source,
+		tokens:  make([]Token, 0),
 		start:   0,
 		current: 0,
 		line:    1,
-		Errors: make(chan Errno),
-		Tokens: make(chan *Token),
-		Done: make(chan bool),
+		runtime: runtime,
 	}
 }
 
 // ScanTokens returns a slice of tokens representing the source text.
-func (sc *Scanner) ScanTokens() {
+func (sc *Scanner) ScanTokens() []Token {
 	for !sc.isAtEnd() {
 		sc.start = sc.current
 		sc.scanToken()
 	}
 
 	sc.addToken(EOF)
-	sc.Done <- true
+	return sc.tokens
 }
 
 func (sc *Scanner) scanToken() {
@@ -136,7 +136,7 @@ func (sc *Scanner) scanToken() {
 			// Identifiers
 			sc.identifier()
 		} else {
-			sc.Errors <- NewErrno(sc.line, "", "Unexpected character.")
+			sc.runtime.Error(sc.line, "Unexpected character.")
 		}
 	}
 }
@@ -160,7 +160,7 @@ func (sc *Scanner) addTokenWithLiteral(_type TokenType, literal interface{}) {
 		text = sc.source[sc.start:sc.current]
 	}
 
-	sc.Tokens <- &Token{Type: _type, Lexeme: text, Literal: literal, Line: sc.line}
+	sc.tokens = append(sc.tokens, Token{Type: _type, Lexeme: text, Literal: literal, Line: sc.line})
 }
 
 func (sc *Scanner) match(expected byte) bool {
@@ -197,7 +197,7 @@ func (sc *Scanner) string() {
 	}
 
 	if sc.isAtEnd() {
-		sc.Errors <- NewErrno(sc.line, "", "Unterminated string.")
+		sc.runtime.Error(sc.line, "Unterminated string.")
 		return
 	}
 
@@ -242,7 +242,7 @@ func (sc *Scanner) identifier() {
 	if !found {
 		_type = IDENTIFIER
 	}
-	
+
 	sc.addToken(_type)
 }
 
@@ -261,7 +261,7 @@ func (sc *Scanner) multilineComment() {
 		sc.advance()
 	}
 
-	sc.Errors <- NewErrno(sc.line, "", "Multiline comment was not closed")
+	sc.runtime.Error(sc.line, "Multiline comment was not closed")
 }
 
 func isDigit(c byte) bool {
