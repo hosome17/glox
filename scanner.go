@@ -91,6 +91,10 @@ func (sc *Scanner) scanToken() {
 		} else {
 			sc.addToken(SLASH)
 		}
+	case '?':
+		sc.addToken(QUESTION_MARK)
+	case ':':
+		sc.addToken(COLON)
 
 	// One or two character tokens
 	case '!':

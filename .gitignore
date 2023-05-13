@@ -1,5 +1,5 @@
 .vscode
 *.glox
-gen_ast
+generate_ast
 print_ast
 glox

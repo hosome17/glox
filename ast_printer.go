@@ -28,6 +28,10 @@ func (ap *AstPrinter) VisitUnaryExpr(expr *Unary) interface{} {
 	return ap.parenthesize(expr.Operator.Lexeme, expr.Right)
 }
 
+func (ap *AstPrinter) VisitConditionalExpr(expr *Conditional) interface{} {
+	return ap.parenthesize("?:", expr.Cond, expr.Consequent, expr.Alternate)
+}
+
 func (ap *AstPrinter) parenthesize(name string, exprs ...Expr) string {
 	var buf string
 

@@ -38,9 +38,54 @@ func (p *Parser) Parse() Expr {
 	return expr
 }
 
-// expression -> equality
+// expression -> series
 func (p *Parser) expression() (Expr, error) {
-	return p.equality()
+	return p.series()
+}
+
+// series -> equality ( "," equality )*
+func (p *Parser) series() (Expr, error) {
+	expr, err := p.conditional()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(COMMA) {
+		operator := p.previous()
+		right, err := p.conditional()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = &Binary{Left: expr, Operator: &operator, Right: right}
+	}
+
+	return expr, nil
+}
+
+// conditional -> equality ( "?" conditional ":" conditional )*
+func (p *Parser) conditional() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(QUESTION_MARK) {
+		then, err := p.conditional()
+		if err != nil {
+			return nil, err
+		}
+
+		p.consume(COLON, "Expect ':' after conditional.")
+		els, err := p.conditional()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = &Conditional{Cond: expr, Consequent: then, Alternate: els}
+	}
+
+	return expr, nil
 }
 
 // equality -> comparison ( ( "!=" | "==" ) comparison )*

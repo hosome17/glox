@@ -15,10 +15,11 @@ func main() {
 	outputDir := os.Args[1]
 
 	defineAst(outputDir, "Expr", []string{
-		"Binary   : Left Expr, Operator *Token, Right Expr",
+		"Binary : Left Expr, Operator *Token, Right Expr",
 		"Grouping : Expression Expr",
-		"Literal  : Value interface{}",
-		"Unary    : Operator *Token, Right Expr",
+		"Literal : Value interface{}",
+		"Unary : Operator *Token, Right Expr",
+		"Conditional : Cond Expr, Consequent Expr, Alternate Expr",
 	})
 }
 
