@@ -27,13 +27,33 @@ func (i *Interpreter) Interpret(statements []Stmt) {
 
 /* Implement StmtVisitor interface */
 
+func (i *Interpreter) VisitWhileStmt(stmt *While) error {
+	for {
+		cond, err := i.evaluate(stmt.Condition)
+		if err != nil {
+			return err
+		}
+
+		if isTruthy(cond) {
+			err = i.execute(stmt.Body)
+			if err != nil {
+				return err
+			}
+		} else {
+			break
+		}
+	}
+
+	return nil
+}
+
 func (i *Interpreter) VisitIfStmt(stmt *If) error {
-	val, err := i.evaluate(stmt.Condition)
+	cond, err := i.evaluate(stmt.Condition)
 	if err != nil {
 		return err
 	}
 
-	if isTruthy(val) {
+	if isTruthy(cond) {
 		if err = i.execute(stmt.ThenBranch); err != nil {
 			return err
 		}

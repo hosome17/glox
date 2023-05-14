@@ -71,6 +71,8 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 
 // statement -> exprStmt
 //			  | ifStmt
+//			  | whileStmt
+//			  | forStmt
 //			  | printStmt
 //			  | block
 func (p *Parser) statement() (Stmt, error) {
@@ -90,8 +92,114 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match(IF) {
 		return p.ifStatement()
 	}
+
+	if p.match(WHILE) {
+		return p.whileStatement()
+	}
+
+	if p.match(FOR) {
+		return p.forStatement()
+	}
 	
 	return p.expressionStatement()
+}
+
+// forStmt -> "for" "(" ( varDecl | exprStmt | ";" )
+//			  expression? ";"
+//			  expression? ")" statement
+func (p *Parser) forStatement() (Stmt, error) {
+	if _, err := p.consume(LEFT_PAREN, "Expect '(' after 'for'."); err != nil {
+		return nil, err
+	}
+
+	var initializer Stmt
+	var err error
+
+	if p.match(SEMICOLON) {
+		initializer = nil
+	} else if p.match(VAR) {
+		initializer, err = p.varDeclaration()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		initializer, err = p.expressionStatement()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var condition Expr
+	if !p.check(SEMICOLON) {
+		condition, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+	
+	if _, err := p.consume(SEMICOLON, "Expect ';' after loop condition."); err != nil {
+		return nil, err
+	}
+
+	var increment Expr
+	if !p.check(RIGHT_PAREN) {
+		increment, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err := p.consume(RIGHT_PAREN, "Expect ')' after for clauses."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	// if increment clause is not empty, move it to the end of the block statement that contains loop-body.
+	if increment != nil {
+		body = &Block{Statements: []Stmt{body, &Expression{increment}}}
+	}
+
+	// if condition is empty, make it true for infinite loop.
+	if condition == nil {
+		condition = &Literal{Value: true}
+	}
+	// transform to while statement.
+	body = &While{Condition: condition, Body: body}
+
+	// if initializer is not empty, wrap it by a block statement and make sure it will be excuted earlier than loop-body.
+	if (initializer != nil) {
+		body = &Block{Statements: []Stmt{initializer, body}}
+	}
+
+	return body, nil
+
+}
+
+// whileStmt -> "while" "(" expression ")" statement
+func (p *Parser) whileStatement() (Stmt, error) {
+	if _, err := p.consume(LEFT_PAREN, "Expect '(' after 'while'."); err != nil {
+		return nil, err
+	}
+
+	condition, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(RIGHT_PAREN, "Expect ')' after condition."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	return &While{Condition: condition, Body: body}, nil
 }
 
 // ifStmt -> "if" "(" expression ")" statement
