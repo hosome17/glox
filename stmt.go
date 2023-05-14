@@ -3,6 +3,7 @@ package glox
 type StmtVisitor interface {
     VisitExpressionStmt(stmt *Expression) error
     VisitPrintStmt(stmt *Print) error
+    VisitVarStmt(stmt *Var) error
 }
 
 type Stmt interface {
@@ -23,5 +24,14 @@ type Print struct {
 
 func (p *Print) Accept(visitor StmtVisitor) error {
     return visitor.VisitPrintStmt(p)
+}
+
+type Var struct {
+    Name *Token
+    Initializer Expr
+}
+
+func (v *Var) Accept(visitor StmtVisitor) error {
+    return visitor.VisitVarStmt(v)
 }
 

@@ -15,12 +15,12 @@ func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 	}
 }
 
-// program -> statement* EOF
+// program -> declaration* EOF
 func (p *Parser) Parse() []Stmt {
 	statements := []Stmt{}
 	
 	for !p.isAtEnd() {
-		statement, err := p.statement()
+		statement, err := p.declaration()
 		if err != nil {
 			return nil
 		}
@@ -29,6 +29,44 @@ func (p *Parser) Parse() []Stmt {
 	}
 
 	return statements
+}
+
+// declaration -> varDecl
+//				| statement
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match(VAR) {
+		varDecl, err := p.varDeclaration()
+		if err != nil {
+			p.synchronize()
+			return nil, err
+		}
+
+		return varDecl, nil
+	}
+
+	return p.statement()
+}
+
+// varDecl -> "var" IDENTIFIER ( "=" expression )? ";"
+func (p *Parser) varDeclaration() (Stmt, error) {
+	name, err := p.consume(IDENTIFIER, "Expect variable name.")
+	if err != nil {
+		return nil, err
+	}
+
+	var initializer Expr
+	if p.match(EQUAL) {
+		initializer, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err = p.consume(SEMICOLON, "Expect ';' after variable declaration."); err != nil {
+		return nil, err
+	}
+
+	return &Var{Name: &name, Initializer: initializer}, nil
 }
 
 // statement -> exprStmt
@@ -71,12 +109,38 @@ func (p *Parser) printStatement() (Stmt, error) {
 	return &Print{Expression: val}, nil
 }
 
-// expression -> series
+// expression -> assignment
 func (p *Parser) expression() (Expr, error) {
-	return p.series()
+	return p.assignment()
 }
 
-// series -> equality ( "," equality )*
+// assignment -> IDENTIFIER "=" assignment
+//			   | series
+func (p *Parser) assignment() (Expr, error) {
+	expr, err := p.series()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.match(EQUAL) {
+		equals := p.previous()
+		val, err := p.assignment()
+		if err != nil {
+			return nil, err
+		}
+
+		variable, isVariable := expr.(*Variable)
+		if !isVariable {
+			return nil, p.error(equals, "Invalid assignment target.")
+		}
+
+		return &Assign{Name: variable.Name, Value: val}, nil
+	}
+
+	return expr, nil
+}
+
+// series -> conditional ( "," conditional )*
 func (p *Parser) series() (Expr, error) {
 	expr, err := p.conditional()
 	if err != nil {
@@ -222,6 +286,7 @@ func (p *Parser) unary() (Expr, error) {
 }
 
 // primary -> NUMBER | STRING | "true" | "false" | "nil"
+//			| IDENTIFIER
 // 			| "(" expression ")"
 func (p *Parser) primary() (Expr, error) {
 	switch {
@@ -233,6 +298,9 @@ func (p *Parser) primary() (Expr, error) {
 		return &Literal{Value: nil}, nil
 	case p.match(NUMBER, STRING):
 		return &Literal{Value: p.previous().Literal}, nil
+	case p.match(IDENTIFIER):
+		ident := p.previous()
+		return &Variable{Name: &ident}, nil
 	case p.match(LEFT_PAREN):
 		expr, err := p.expression()
 		if err != nil {

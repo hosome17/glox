@@ -7,11 +7,13 @@ import (
 
 type Interpreter struct {
 	errorPrinter *ErrorPrinter
+	environment *Environment
 }
 
 func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 	return &Interpreter{
 		errorPrinter: errorPrinter,
+		environment: NewEnvironment(),
 	}
 }
 
@@ -24,6 +26,20 @@ func (i *Interpreter) Interpret(statements []Stmt) {
 }
 
 /* Implement StmtVisitor interface */
+func (i *Interpreter) VisitVarStmt(stmt *Var) error {
+	var val interface{}
+	var err error
+
+	if stmt.Initializer != nil {
+		if val, err = i.evaluate(stmt.Initializer); err != nil {
+			return err
+		}
+	}
+
+	i.environment.Define(stmt.Name.Lexeme, val)
+	return nil
+}
+
 func (i *Interpreter) VisitPrintStmt(stmt *Print) error {
 	val, err := i.evaluate(stmt.Expression)
 	if err != nil {
@@ -44,6 +60,24 @@ func (i *Interpreter) execute(stmt Stmt) error {
 }
 
 /* Implement ExprVisitor interface */
+func (i *Interpreter) VisitAssignExpr(expr *Assign) (interface{}, error) {
+	val, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	err = i.environment.Assign(expr.Name, val)
+	if err != nil {
+		return nil, err
+	}
+
+	return val, nil
+}
+
+func (i *Interpreter) VisitVariableExpr(expr *Variable) (interface{}, error) {
+	return i.environment.Get(expr.Name)
+}
+
 func (i *Interpreter) VisitLiteralExpr(expr *Literal) (interface{}, error) {
 	return expr.Value, nil
 }
@@ -252,7 +286,6 @@ func isString(v interface{}) bool {
 
 	return false
 }
-
 
 func isFloat64(v interface{}) bool {
 	switch v.(type) {

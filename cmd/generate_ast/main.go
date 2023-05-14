@@ -20,12 +20,15 @@ func main() {
 		"Literal : Value interface{}",
 		"Unary : Operator *Token, Right Expr",
 		"Conditional : Cond Expr, Consequent Expr, Alternate Expr",
+		"Variable : Name *Token",
+		"Assign : Name *Token, Value Expr",
 	})
 
-	defineAst(outputDir, "Stmt", []string{
-		"Expression : Expression Expr",
-		"Print : Expression Expr",
-	})
+	// defineAst(outputDir, "Stmt", []string{
+	// 	"Expression : Expression Expr",
+	// 	"Print : Expression Expr",
+	// 	"Var : Name *Token, Initializer Expr",
+	// })
 }
 
 func defineAst(outputDir string, baseName string, types []string) {

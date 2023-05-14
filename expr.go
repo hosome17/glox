@@ -6,6 +6,8 @@ type ExprVisitor interface {
     VisitLiteralExpr(expr *Literal) (interface{}, error)
     VisitUnaryExpr(expr *Unary) (interface{}, error)
     VisitConditionalExpr(expr *Conditional) (interface{}, error)
+    VisitVariableExpr(expr *Variable) (interface{}, error)
+    VisitAssignExpr(expr *Assign) (interface{}, error)
 }
 
 type Expr interface {
@@ -55,5 +57,22 @@ type Conditional struct {
 
 func (c *Conditional) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitConditionalExpr(c)
+}
+
+type Variable struct {
+    Name *Token
+}
+
+func (v *Variable) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitVariableExpr(v)
+}
+
+type Assign struct {
+    Name *Token
+    Value Expr
+}
+
+func (a *Assign) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitAssignExpr(a)
 }
 
