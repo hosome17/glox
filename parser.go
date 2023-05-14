@@ -71,12 +71,42 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 
 // statement -> exprStmt
 //			  | printStmt
+//			  | block
 func (p *Parser) statement() (Stmt, error) {
 	if p.match(PRINT) {
 		return p.printStatement()
 	}
+
+	if p.match(LEFT_BRACE) {
+		stmts, err := p.block()
+		if err != nil {
+			return nil, err
+		}
+
+		return &Block{Statements: stmts}, nil
+	}
 	
 	return p.expressionStatement()
+}
+
+// block -> "{" declaration* "}"
+func (p *Parser) block() ([]Stmt, error) {
+	stmts := []Stmt{}
+
+	for !p.check(RIGHT_BRACE) && !p.isAtEnd() {
+		stmt, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+
+		stmts = append(stmts, stmt)
+	}
+
+	if _, err := p.consume(RIGHT_BRACE, "Expect '}' after block."); err != nil {
+		return nil, err
+	}
+
+	return stmts, nil
 }
 
 // exprStmt -> expression ";"

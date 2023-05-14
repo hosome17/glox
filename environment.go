@@ -2,11 +2,13 @@ package glox
 
 type Environment struct {
 	values map[string]interface{}
+	enclosing *Environment
 }
 
-func NewEnvironment() *Environment {
+func NewEnvironment(enclosing *Environment) *Environment {
 	return &Environment{
 		values: make(map[string]interface{}),
+		enclosing: enclosing,
 	}
 }
 
@@ -17,6 +19,10 @@ func (e *Environment) Define(name string, value interface{}) {
 func (e *Environment) Get(name *Token) (interface{}, error) {
 	val, defined := e.values[name.Lexeme]
 	if !defined {
+		if e.enclosing != nil {
+			return e.enclosing.Get(name)
+		}
+
 		return nil, NewRuntimeError(name, "Undefined variable '" + name.Lexeme + "'.")
 	}
 
@@ -25,6 +31,10 @@ func (e *Environment) Get(name *Token) (interface{}, error) {
 
 func (e *Environment) Assign(name *Token, val interface{}) error {
 	if _, defined := e.values[name.Lexeme]; !defined {
+		if e.enclosing != nil {
+			return e.enclosing.Assign(name, val)
+		}
+
 		return NewRuntimeError(name, "Undefined variable '" + name.Lexeme + "'.")
 	}
 

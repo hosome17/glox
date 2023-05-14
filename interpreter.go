@@ -13,7 +13,7 @@ type Interpreter struct {
 func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 	return &Interpreter{
 		errorPrinter: errorPrinter,
-		environment: NewEnvironment(),
+		environment: NewEnvironment(nil),
 	}
 }
 
@@ -26,6 +26,10 @@ func (i *Interpreter) Interpret(statements []Stmt) {
 }
 
 /* Implement StmtVisitor interface */
+func (i *Interpreter) VisitBlockStmt(stmt *Block) error {
+	return i.executeBlock(stmt.Statements, NewEnvironment(i.environment))
+}
+
 func (i *Interpreter) VisitVarStmt(stmt *Var) error {
 	var val interface{}
 	var err error
@@ -57,6 +61,24 @@ func (i *Interpreter) VisitExpressionStmt(stmt *Expression) error {
 
 func (i *Interpreter) execute(stmt Stmt) error {
 	return stmt.Accept(i)
+}
+
+func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) error {
+	previous := i.environment
+	defer func() {
+		i.environment = previous
+	}()
+
+	i.environment = environment
+	for _, stmt := range statements {
+		if err := i.execute(stmt); err != nil {
+			i.environment = previous
+			return err
+		}
+	}
+
+	i.environment = previous
+	return nil
 }
 
 /* Implement ExprVisitor interface */
