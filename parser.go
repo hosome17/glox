@@ -70,6 +70,7 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 }
 
 // statement -> exprStmt
+//			  | ifStmt
 //			  | printStmt
 //			  | block
 func (p *Parser) statement() (Stmt, error) {
@@ -85,8 +86,44 @@ func (p *Parser) statement() (Stmt, error) {
 
 		return &Block{Statements: stmts}, nil
 	}
+
+	if p.match(IF) {
+		return p.ifStatement()
+	}
 	
 	return p.expressionStatement()
+}
+
+// ifStmt -> "if" "(" expression ")" statement
+//		   ( "else" statement )?
+func (p *Parser) ifStatement() (Stmt, error) {
+	if _, err := p.consume(LEFT_PAREN, "Expect '(' after 'if'."); err != nil {
+		return nil, err
+	}
+
+	condition, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := p.consume(RIGHT_PAREN, "Expect ')' after if condition."); err != nil {
+		return nil, err
+	}
+
+	thenBranch, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	var elseBranch Stmt
+	if p.match(ELSE) {
+		elseBranch, err = p.statement()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &If{Condition: condition, ThenBranch: thenBranch, ElseBranch: elseBranch}, nil
 }
 
 // block -> "{" declaration* "}"
@@ -190,9 +227,9 @@ func (p *Parser) series() (Expr, error) {
 	return expr, nil
 }
 
-// conditional -> equality ( "?" conditional ":" conditional )*
+// conditional -> logic_or ( "?" conditional ":" conditional )*
 func (p *Parser) conditional() (Expr, error) {
-	expr, err := p.equality()
+	expr, err := p.or()
 	if err != nil {
 		return nil, err
 	}
@@ -214,6 +251,46 @@ func (p *Parser) conditional() (Expr, error) {
 		}
 
 		expr = &Conditional{Cond: expr, Consequent: then, Alternate: els}
+	}
+
+	return expr, nil
+}
+
+// logic_or -> logic_and ( "or" logic_and )*
+func (p *Parser) or() (Expr, error) {
+	expr, err := p.and()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(OR) {
+		operator := p.previous()
+		right, err := p.and()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = &Logical{Left: expr, Operator: &operator, Right: right}
+	}
+
+	return expr, nil
+}
+
+// logic_and -> equality ( "and" equality )*
+func (p *Parser) and() (Expr, error) {
+	expr, err := p.equality()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(AND) {
+		operator := p.previous()
+		right, err := p.equality()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = &Logical{Left: expr, Operator: &operator, Right: right}
 	}
 
 	return expr, nil

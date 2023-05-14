@@ -5,6 +5,7 @@ type StmtVisitor interface {
     VisitPrintStmt(stmt *Print) error
     VisitVarStmt(stmt *Var) error
     VisitBlockStmt(stmt *Block) error
+    VisitIfStmt(stmt *If) error
 }
 
 type Stmt interface {
@@ -42,5 +43,15 @@ type Block struct {
 
 func (b *Block) Accept(visitor StmtVisitor) error {
     return visitor.VisitBlockStmt(b)
+}
+
+type If struct {
+    Condition Expr
+    ThenBranch Stmt
+    ElseBranch Stmt
+}
+
+func (i *If) Accept(visitor StmtVisitor) error {
+    return visitor.VisitIfStmt(i)
 }
 

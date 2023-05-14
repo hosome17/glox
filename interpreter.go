@@ -26,6 +26,26 @@ func (i *Interpreter) Interpret(statements []Stmt) {
 }
 
 /* Implement StmtVisitor interface */
+
+func (i *Interpreter) VisitIfStmt(stmt *If) error {
+	val, err := i.evaluate(stmt.Condition)
+	if err != nil {
+		return err
+	}
+
+	if isTruthy(val) {
+		if err = i.execute(stmt.ThenBranch); err != nil {
+			return err
+		}
+	} else if (stmt.ElseBranch != nil) {
+		if err = i.execute(stmt.ElseBranch); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (i *Interpreter) VisitBlockStmt(stmt *Block) error {
 	return i.executeBlock(stmt.Statements, NewEnvironment(i.environment))
 }
@@ -82,6 +102,28 @@ func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) 
 }
 
 /* Implement ExprVisitor interface */
+
+func (i *Interpreter) VisitLogicalExpr(expr *Logical) (interface{}, error) {
+	left, err := i.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if expr.Operator.Type == OR {
+		if isTruthy(left) {		// OR, left == true
+			return left, nil
+		}
+	} else {
+		if !isTruthy(left) {	// AND, left == false
+			return left, nil
+		}
+	}
+
+	// OR, left == false
+	// AND, left == true
+	return i.evaluate(expr.Right)
+}
+
 func (i *Interpreter) VisitAssignExpr(expr *Assign) (interface{}, error) {
 	val, err := i.evaluate(expr.Value)
 	if err != nil {
@@ -257,14 +299,6 @@ func (i *Interpreter) checkNumberOperands(operator *Token, operand1 interface{},
 	}
 
 	return NewRuntimeError(operator, "Operands must be numbers.")
-	
-	// for operand := range operands {
-	// 	if !isFloat64(operand) {
-	// 		return NewRuntimeError(operator, "Operands must be numbers.")
-	// 	}
-	// }
-
-	// return nil
 }
 
 func isTruthy(v interface{}) bool {

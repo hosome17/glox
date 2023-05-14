@@ -8,6 +8,7 @@ type ExprVisitor interface {
     VisitConditionalExpr(expr *Conditional) (interface{}, error)
     VisitVariableExpr(expr *Variable) (interface{}, error)
     VisitAssignExpr(expr *Assign) (interface{}, error)
+    VisitLogicalExpr(expr *Logical) (interface{}, error)
 }
 
 type Expr interface {
@@ -74,5 +75,15 @@ type Assign struct {
 
 func (a *Assign) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitAssignExpr(a)
+}
+
+type Logical struct {
+    Left Expr
+    Operator *Token
+    Right Expr
+}
+
+func (l *Logical) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitLogicalExpr(l)
 }
 

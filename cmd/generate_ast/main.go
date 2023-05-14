@@ -22,14 +22,16 @@ func main() {
 		"Conditional : Cond Expr, Consequent Expr, Alternate Expr",
 		"Variable    : Name *Token",
 		"Assign      : Name *Token, Value Expr",
+		"Logical     : Left Expr, Operator *Token, Right Expr",
 	})
 
-	defineAst(outputDir, "Stmt", []string{
-		"Expression : Expression Expr",
-		"Print      : Expression Expr",
-		"Var        : Name *Token, Initializer Expr",
-		"Block      : Statements []Stmt",
-	})
+	// defineAst(outputDir, "Stmt", []string{
+	// 	"Expression : Expression Expr",
+	// 	"Print      : Expression Expr",
+	// 	"Var        : Name *Token, Initializer Expr",
+	// 	"Block      : Statements []Stmt",
+	// 	"If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
+	// })
 }
 
 func defineAst(outputDir string, baseName string, types []string) {
@@ -46,7 +48,8 @@ func defineAst(outputDir string, baseName string, types []string) {
 	defineVisitor(w, baseName, types)
 
 	w.WriteString("type " + baseName + " interface {\n")
-	w.WriteString("    Accept(visitor " + baseName + "Visitor) (interface{}, error)\n")
+	w.WriteString("    Accept(visitor " + baseName + "Visitor) (interface{}, error)\n")	// Expr
+	// w.WriteString("    Accept(visitor " + baseName + "Visitor) error\n")	// Stmt
 	w.WriteString("}\n\n")
 
 	for _, t := range types {
@@ -64,7 +67,8 @@ func defineVisitor(w *bufio.Writer, baseName string, types []string) {
 	w.WriteString("type " + baseName + "Visitor interface {\n")
 	for _, t := range types {
 		typeName := strings.Trim(strings.Split(t, ":")[0], " ")
-		w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") (interface{}, error)\n")
+		w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") (interface{}, error)\n")	// Expr
+		// w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") error\n")	// Stmt
 	}
 
 	w.WriteString("}\n\n")
@@ -81,7 +85,8 @@ func defineType(w *bufio.Writer, baseName string, className string, fieldList st
 
 	// implements the base interface.
 	receiver := string(strings.ToLower(className)[0])
-	w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) (interface{}, error) {\n")
+	w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) (interface{}, error) {\n")	// Expr
+	// w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) error {\n")	// Stmt
 	w.WriteString("    return visitor.Visit" + className + baseName + "(" + receiver + ")\n")
 	w.WriteString("}\n\n")
 }
