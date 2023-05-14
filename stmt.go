@@ -7,6 +7,7 @@ type StmtVisitor interface {
     VisitBlockStmt(stmt *Block) error
     VisitIfStmt(stmt *If) error
     VisitWhileStmt(stmt *While) error
+    VisitBreakStmt(stmt *Break) error
 }
 
 type Stmt interface {
@@ -63,5 +64,12 @@ type While struct {
 
 func (w *While) Accept(visitor StmtVisitor) error {
     return visitor.VisitWhileStmt(w)
+}
+
+type Break struct {
+}
+
+func (b *Break) Accept(visitor StmtVisitor) error {
+    return visitor.VisitBreakStmt(b)
 }
 

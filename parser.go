@@ -5,6 +5,8 @@ type Parser struct {
 	current uint32
 
 	errorPrinter *ErrorPrinter
+
+	loopDepth uint32	// for break statement
 }
 
 func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
@@ -12,6 +14,7 @@ func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 		tokens:  tokens,
 		current: 0,
 		errorPrinter: errorPrinter,
+		loopDepth: 0,
 	}
 }
 
@@ -73,6 +76,7 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 //			  | ifStmt
 //			  | whileStmt
 //			  | forStmt
+//			  | breakStmt
 //			  | printStmt
 //			  | block
 func (p *Parser) statement() (Stmt, error) {
@@ -100,8 +104,25 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match(FOR) {
 		return p.forStatement()
 	}
+
+	if p.match(BREAK) {
+		return p.breakStatement()
+	}
 	
 	return p.expressionStatement()
+}
+
+// breakStmt -> 
+func (p *Parser) breakStatement() (Stmt, error) {
+	if p.loopDepth == 0 {
+		return nil, p.error(p.previous(), "Must be inside a loop to use 'break'.")
+	}
+
+	if _, err := p.consume(SEMICOLON, "Expect ';' after 'break'."); err != nil {
+		return nil, err
+	}
+
+	return &Break{}, nil
 }
 
 // forStmt -> "for" "(" ( varDecl | exprStmt | ";" )
@@ -153,8 +174,10 @@ func (p *Parser) forStatement() (Stmt, error) {
 		return nil, err
 	}
 
+	p.loopDepth++
 	body, err := p.statement()
 	if err != nil {
+		p.loopDepth--
 		return nil, err
 	}
 
@@ -175,8 +198,8 @@ func (p *Parser) forStatement() (Stmt, error) {
 		body = &Block{Statements: []Stmt{initializer, body}}
 	}
 
+	p.loopDepth--
 	return body, nil
-
 }
 
 // whileStmt -> "while" "(" expression ")" statement
@@ -194,11 +217,14 @@ func (p *Parser) whileStatement() (Stmt, error) {
 		return nil, err
 	}
 
+	p.loopDepth++
 	body, err := p.statement()
 	if err != nil {
+		p.loopDepth--
 		return nil, err
 	}
 
+	p.loopDepth--
 	return &While{Condition: condition, Body: body}, nil
 }
 

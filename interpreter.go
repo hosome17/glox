@@ -20,18 +20,26 @@ func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 func (i *Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
 		if err := i.execute(statement); err != nil {
-			i.errorPrinter.RuntimeError(err)
+			if _, isBreakError := err.(*breakError); !isBreakError {
+				i.errorPrinter.RuntimeError(err)
+			}
 		}
 	}
 }
 
 /* Implement StmtVisitor interface */
 
+func (i *Interpreter) VisitBreakStmt(stmt *Break) error {
+	return NewBreakError()
+}
+
 func (i *Interpreter) VisitWhileStmt(stmt *While) error {
 	for {
 		cond, err := i.evaluate(stmt.Condition)
 		if err != nil {
-			return err
+			if _, isBreakError := err.(*breakError); !isBreakError {
+				return err
+			}
 		}
 
 		if isTruthy(cond) {

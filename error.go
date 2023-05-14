@@ -35,6 +35,17 @@ func (re *runtimeError) Error() string {
 	return re.message
 }
 
+type breakError struct {
+}
+
+func NewBreakError() *breakError {
+	return &breakError{}
+}
+
+func (be *breakError) Error() string {
+	return ""
+}
+
 type ErrorPrinter struct {
 	hadError bool
 	hadRuntimeError bool

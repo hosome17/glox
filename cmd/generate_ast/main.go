@@ -32,6 +32,7 @@ func main() {
 		"Block      : Statements []Stmt",
 		"If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While      : Condition Expr, Body Stmt",
+		"Break      : ",
 	})
 }
 
@@ -78,7 +79,12 @@ func defineVisitor(w *bufio.Writer, baseName string, types []string) {
 func defineType(w *bufio.Writer, baseName string, className string, fieldList string) {
 	w.WriteString("type " + className + " struct {\n")
 
-	fields := strings.Split(fieldList, ", ")
+	var fields []string
+	if (fieldList == "") {
+		fields = []string{}
+	} else {
+		fields = strings.Split(fieldList, ", ")
+	}
 	for _, field := range fields {
 		w.WriteString("    " + field + "\n")
 	}
