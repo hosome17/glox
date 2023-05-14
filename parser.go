@@ -15,13 +15,60 @@ func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 	}
 }
 
-func (p *Parser) Parse() Expr {
-	expr, err := p.expression()
-	if err != nil {
-		return nil
+// program -> statement* EOF
+func (p *Parser) Parse() []Stmt {
+	statements := []Stmt{}
+	
+	for !p.isAtEnd() {
+		statement, err := p.statement()
+		if err != nil {
+			return nil
+		}
+
+		statements = append(statements, statement)
 	}
 
-	return expr
+	return statements
+}
+
+// statement -> exprStmt
+//			  | printStmt
+func (p *Parser) statement() (Stmt, error) {
+	if p.match(PRINT) {
+		return p.printStatement()
+	}
+	
+	return p.expressionStatement()
+}
+
+// exprStmt -> expression ";"
+func (p *Parser) expressionStatement() (Stmt, error) {
+	expr, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	
+	if _, err = p.consume(SEMICOLON, "Expect ';' after expression."); err != nil {
+		return nil, err
+	}
+
+	return &Expression{Expression: expr}, nil
+}
+
+// printStmt -> "print" expression ";"
+func (p *Parser) printStatement() (Stmt, error) {
+	val, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	
+	if _, err = p.consume(SEMICOLON, "Expect ';' after value."); err != nil {
+		return nil, err
+	}
+
+	return &Print{Expression: val}, nil
 }
 
 // expression -> series
@@ -62,7 +109,11 @@ func (p *Parser) conditional() (Expr, error) {
 			return nil, err
 		}
 
-		p.consume(COLON, "Expect ':' after conditional.")
+		
+		if _, err = p.consume(COLON, "Expect ':' after conditional."); err != nil {
+			return nil, err
+		}
+
 		els, err := p.conditional()
 		if err != nil {
 			return nil, err
@@ -188,7 +239,7 @@ func (p *Parser) primary() (Expr, error) {
 			return nil, err
 		}
 
-		if _, err := p.consume(RIGHT_PAREN, "Expect ')' after expression."); err != nil {
+		if _, err = p.consume(RIGHT_PAREN, "Expect ')' after expression."); err != nil {
 			return nil, err
 		}
 

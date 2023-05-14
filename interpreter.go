@@ -15,16 +15,35 @@ func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 	}
 }
 
-func (i *Interpreter) Interpret(expression Expr) {
-	val, err := i.evaluate(expression)
+func (i *Interpreter) Interpret(statements []Stmt) {
+	for _, statement := range statements {
+		if err := i.execute(statement); err != nil {
+			i.errorPrinter.RuntimeError(err)
+		}
+	}
+}
+
+/* Implement StmtVisitor interface */
+func (i *Interpreter) VisitPrintStmt(stmt *Print) error {
+	val, err := i.evaluate(stmt.Expression)
 	if err != nil {
-		i.errorPrinter.RuntimeError(err)
-		return
+		return err
 	}
 
 	fmt.Println(stringify(val))
+	return nil
 }
 
+func (i *Interpreter) VisitExpressionStmt(stmt *Expression) error {
+	_, err := i.evaluate(stmt.Expression)
+	return err
+}
+
+func (i *Interpreter) execute(stmt Stmt) error {
+	return stmt.Accept(i)
+}
+
+/* Implement ExprVisitor interface */
 func (i *Interpreter) VisitLiteralExpr(expr *Literal) (interface{}, error) {
 	return expr.Value, nil
 }
@@ -88,10 +107,24 @@ func (i *Interpreter) VisitBinaryExpr(expr *Binary) (interface{}, error) {
 			return left.(string) + right.(string), nil
 		}
 
-		return nil, NewRuntimeError(expr.Operator, "Operands must be two numbers or two strings.")
+		// concatenate them when one operand is string and the other is number.
+		if isString(left) && isFloat64(right) {
+			return left.(string) + strconv.FormatFloat(right.(float64), 'f', -1, 64), nil
+		}
+
+		if isFloat64(left) && isString(right) {
+			return strconv.FormatFloat(left.(float64), 'f', -1, 64) + right.(string), nil
+		}
+
+		return nil, NewRuntimeError(expr.Operator, "both operands must be numbers or strings.")
 	case SLASH:
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
+		}
+
+		// divisor can not be 0
+		if right.(float64) == 0 {
+			return nil, NewRuntimeError(expr.Operator, "divisor can not be 0.")
 		}
 
 		return left.(float64) / right.(float64), nil

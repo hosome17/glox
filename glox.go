@@ -66,19 +66,12 @@ func (g *Glox) run(source string) {
 	scanner := NewScanner(source, g.errorPrinter)
 	tokens := scanner.ScanTokens()
 
-	// for _, token := range tokens {
-	// 	fmt.Println(token)
-	// }
-
 	parser := NewParser(tokens, g.errorPrinter)
-	expr := parser.Parse()
+	stmts := parser.Parse()
 
 	if g.errorPrinter.hadError {
 		return
 	}
 
-	// printer := &AstPrinter{}
-	// fmt.Println(printer.Print(expr))
-
-	g.interpreter.Interpret(expr)
+	g.interpreter.Interpret(stmts)
 }

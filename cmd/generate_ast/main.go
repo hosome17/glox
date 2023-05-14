@@ -21,6 +21,11 @@ func main() {
 		"Unary : Operator *Token, Right Expr",
 		"Conditional : Cond Expr, Consequent Expr, Alternate Expr",
 	})
+
+	defineAst(outputDir, "Stmt", []string{
+		"Expression : Expression Expr",
+		"Print : Expression Expr",
+	})
 }
 
 func defineAst(outputDir string, baseName string, types []string) {
