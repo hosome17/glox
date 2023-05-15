@@ -27,6 +27,18 @@ func (i *Interpreter) Interpret(statements []Stmt) {
 	}
 }
 
+// InterpretREPL will just be used in REPL.
+// It will try to evaluate expression and display the value.
+func (i *Interpreter) InterpretREPL(expression Expr) string {
+	val, err := i.evaluate(expression)
+	if err != nil {
+		i.errorPrinter.RuntimeError(err)
+		return ""
+	}
+
+	return stringify(val)
+}
+
 /* Implement StmtVisitor interface */
 
 func (i *Interpreter) VisitBreakStmt(stmt *Break) error {

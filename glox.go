@@ -53,12 +53,27 @@ func (g *Glox) runFile(path string) {
 func (g *Glox) runPrompt() {
 	reader := bufio.NewScanner(os.Stdin)
 	for {
+		g.errorPrinter.hadError = false
+
 		fmt.Print("> ")
 		if !reader.Scan() {
 			break
 		}
-		g.run(reader.Text())
-		g.errorPrinter.hadError = false
+		scanner := NewScanner(reader.Text(), g.errorPrinter)
+		tokens := scanner.ScanTokens()
+
+		parser := NewParser(tokens, g.errorPrinter)
+		syntax := parser.ParseREPL()
+
+		switch syntax.(type) {
+		case []Stmt:
+			g.interpreter.Interpret(syntax.([]Stmt))
+		case *Expression:
+			result := g.interpreter.InterpretREPL(syntax.(*Expression).Expression)
+			if result != "" {
+				fmt.Println("=", result)
+			}
+		}
 	}
 }
 

@@ -7,6 +7,10 @@ type Parser struct {
 	errorPrinter *ErrorPrinter
 
 	loopDepth uint32	// for break statement
+
+	// for REPL
+	allowExpression bool
+	foundExpression bool
 }
 
 func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
@@ -15,6 +19,7 @@ func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 		current: 0,
 		errorPrinter: errorPrinter,
 		loopDepth: 0,
+		foundExpression: false,
 	}
 }
 
@@ -29,6 +34,34 @@ func (p *Parser) Parse() []Stmt {
 		}
 
 		statements = append(statements, statement)
+	}
+
+	return statements
+}
+
+// ParseREPL adds support for REPL to let users type in both statements and expressions.
+// If they enter a statement, execute it. and if they enter an expression, evaluate it and
+// display the result value.
+func  (p *Parser) ParseREPL() interface{} {
+	p.allowExpression = true
+	statements := []Stmt{}
+
+	for !p.isAtEnd() {
+		statement, err := p.declaration()
+		if err != nil {
+			return nil
+		}
+
+		statements = append(statements, statement)
+
+		if (p.foundExpression) {
+			last := statements[len(statements) - 1]
+			if v, isExpr := last.(*Expression); isExpr {
+				return v
+			}
+		}
+
+		p.allowExpression = false
 	}
 
 	return statements
@@ -287,9 +320,13 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		return nil, err
 	}
 
-	
-	if _, err = p.consume(SEMICOLON, "Expect ';' after expression."); err != nil {
-		return nil, err
+	// for REPL 
+	if p.allowExpression && p.isAtEnd() {
+		p.foundExpression = true
+	} else {
+		if _, err = p.consume(SEMICOLON, "Expect ';' after expression."); err != nil {
+			return nil, err
+		}
 	}
 
 	return &Expression{Expression: expr}, nil
