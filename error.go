@@ -5,6 +5,7 @@ import (
 	"log"
 )
 
+// parserError represents the errors that occured during parsing.
 type parserError struct {
 	message string
 }
@@ -19,6 +20,7 @@ func (pe *parserError) Error() string {
 	return pe.message
 }
 
+// runtimeError represents the errors that occured during interpreting.
 type runtimeError struct {
 	Token *Token
 	message string
@@ -35,6 +37,7 @@ func (re *runtimeError) Error() string {
 	return re.message
 }
 
+// breakError is used to break loop.
 type breakError struct {
 }
 

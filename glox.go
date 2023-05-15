@@ -8,6 +8,9 @@ import (
 
 type Glox struct {
 	interpreter *Interpreter
+
+	// errorPrinter receives and reports errors that occur during
+	// scanning, parsing and interpreting.
 	errorPrinter *ErrorPrinter
 }
 
@@ -65,6 +68,8 @@ func (g *Glox) runPrompt() {
 		parser := NewParser(tokens, g.errorPrinter)
 		syntax := parser.ParseREPL()
 
+		// If they enter a statement, execute it. And if they enter an expression,
+		// evaluate it and display the result value.
 		switch syntax.(type) {
 		case []Stmt:
 			g.interpreter.Interpret(syntax.([]Stmt))

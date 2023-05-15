@@ -202,41 +202,41 @@ func (i *Interpreter) VisitBinaryExpr(expr *Binary) (interface{}, error) {
 	}
 
 	switch expr.Operator.Type {
-	case GREATER:
+	case GREATER:		// >
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 
 		return left.(float64) > right.(float64), nil
-	case GREATER_EQUAL:
+	case GREATER_EQUAL:	// >=
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 
 		return left.(float64) >= right.(float64), nil
-	case LESS:
+	case LESS:			// <
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 
 		return left.(float64) < right.(float64), nil
-	case LESS_EQUAL:
+	case LESS_EQUAL:	// <=
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 
 		return left.(float64) <= right.(float64), nil
-	case BANG_EQUAL:
+	case BANG_EQUAL:	// !=
 		return !(left == right), nil
-	case EQUAL_EQUAL:
+	case EQUAL_EQUAL:	// ==
 		return left == right, nil
-	case MINUS:
+	case MINUS:			// -
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
 
 		return left.(float64) - right.(float64), nil
-	case PLUS:
+	case PLUS:			// +
 		if isFloat64(left) && isFloat64(right) {
 			return left.(float64) + right.(float64), nil
 		}
@@ -255,7 +255,7 @@ func (i *Interpreter) VisitBinaryExpr(expr *Binary) (interface{}, error) {
 		}
 
 		return nil, NewRuntimeError(expr.Operator, "both operands must be numbers or strings.")
-	case SLASH:
+	case SLASH:			// /
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
@@ -266,7 +266,7 @@ func (i *Interpreter) VisitBinaryExpr(expr *Binary) (interface{}, error) {
 		}
 
 		return left.(float64) / right.(float64), nil
-	case STAR:
+	case STAR:			// *
 		if err := i.checkNumberOperands(expr.Operator, left, right); err != nil {
 			return nil, err
 		}
@@ -284,9 +284,13 @@ func (i *Interpreter) VisitConditionalExpr(expr *Conditional) (interface{}, erro
 		return nil, err
 	}
 
-	then, err := i.evaluate(expr.Consequent)
-	if err != nil {
-		return nil, err
+	if isTruthy(cond) {
+		then, err := i.evaluate(expr.Consequent)
+		if err != nil {
+			return nil, err
+		}
+
+		return then, nil
 	}
 
 	els, err := i.evaluate(expr.Alternate)
@@ -294,9 +298,6 @@ func (i *Interpreter) VisitConditionalExpr(expr *Conditional) (interface{}, erro
 		return nil, err
 	}
 
-	if isTruthy(cond) {
-		return then, nil
-	}
 	return els, nil 
 }
 
@@ -341,6 +342,9 @@ func (i *Interpreter) checkNumberOperands(operator *Token, operand1 interface{},
 	return NewRuntimeError(operator, "Operands must be numbers.")
 }
 
+// isTruthy determines the truthfulness of a value.
+// It returns false only if the value is nil or the boolean value false,
+// and true in the rest of cases.
 func isTruthy(v interface{}) bool {
 	if v == nil {
 		return false

@@ -40,8 +40,6 @@ func (p *Parser) Parse() []Stmt {
 }
 
 // ParseREPL adds support for REPL to let users type in both statements and expressions.
-// If they enter a statement, execute it. and if they enter an expression, evaluate it and
-// display the result value.
 func  (p *Parser) ParseREPL() interface{} {
 	p.allowExpression = true
 	statements := []Stmt{}
@@ -355,7 +353,7 @@ func (p *Parser) expression() (Expr, error) {
 // assignment -> IDENTIFIER "=" assignment
 //			   | series
 func (p *Parser) assignment() (Expr, error) {
-	expr, err := p.series()
+	expr, err := p.comma()
 	if err != nil {
 		return nil, err
 	}
@@ -378,8 +376,8 @@ func (p *Parser) assignment() (Expr, error) {
 	return expr, nil
 }
 
-// series -> conditional ( "," conditional )*
-func (p *Parser) series() (Expr, error) {
+// comma -> conditional ( "," conditional )*
+func (p *Parser) comma() (Expr, error) {
 	expr, err := p.conditional()
 	if err != nil {
 		return nil, err
@@ -398,7 +396,7 @@ func (p *Parser) series() (Expr, error) {
 	return expr, nil
 }
 
-// conditional -> logic_or ( "?" conditional ":" conditional )*
+// conditional -> logic_or ( "?" expression ":" conditional )?
 func (p *Parser) conditional() (Expr, error) {
 	expr, err := p.or()
 	if err != nil {
@@ -406,22 +404,22 @@ func (p *Parser) conditional() (Expr, error) {
 	}
 
 	for p.match(QUESTION_MARK) {
-		then, err := p.conditional()
+		thenBranch, err := p.expression()
 		if err != nil {
 			return nil, err
 		}
 
 		
-		if _, err = p.consume(COLON, "Expect ':' after conditional."); err != nil {
+		if _, err = p.consume(COLON, "Expect ':' after then branch of conditional expression."); err != nil {
 			return nil, err
 		}
 
-		els, err := p.conditional()
+		elseBranch, err := p.conditional()
 		if err != nil {
 			return nil, err
 		}
 
-		expr = &Conditional{Cond: expr, Consequent: then, Alternate: els}
+		expr = &Conditional{Cond: expr, Consequent: thenBranch, Alternate: elseBranch}
 	}
 
 	return expr, nil
@@ -595,6 +593,8 @@ func (p *Parser) primary() (Expr, error) {
 	return nil, p.error(p.peek(), "Expect expression.")
 }
 
+// match checks if the current token matches any of the given token types.
+// If a match is found, it advances the parser and returns true.
 func (p *Parser) match(types ...TokenType) bool {
 	for _, _type := range types {
 		if p.check(_type) {
@@ -606,6 +606,7 @@ func (p *Parser) match(types ...TokenType) bool {
 	return false
 }
 
+// check returns true if the current token's type matches the given token type.
 func (p *Parser) check(_type TokenType) bool {
 	if p.isAtEnd() {
 		return false
@@ -614,6 +615,7 @@ func (p *Parser) check(_type TokenType) bool {
 	return p.peek().Type == _type
 }
 
+// advance moves the parser to the next token and returns the previous token.
 func (p *Parser) advance() Token {
 	if !p.isAtEnd() {
 		p.current++
@@ -622,18 +624,23 @@ func (p *Parser) advance() Token {
 	return p.previous()
 }
 
+// isAtEnd returns true if the parser has reached the end of the token list.
 func (p *Parser) isAtEnd() bool {
 	return p.peek().Type == EOF
 }
 
+// peek returns the current token without advancing the parser.
 func (p *Parser) peek() Token {
 	return p.tokens[p.current]
 }
 
+// previous returns the token before the current token.
 func (p *Parser) previous() Token {
 	return p.tokens[p.current-1]
 }
 
+// consume advances the parser if the current token's type matches the given token type.
+// If not, it returns an error with the provided message.
 func (p *Parser) consume(_type TokenType, message string) (Token, error) {
 	if p.check(_type) {
 		return p.advance(), nil
@@ -647,6 +654,11 @@ func (p *Parser) error(token Token, message string) error {
 	return NewParserError(message)
 }
 
+// synchronize synchronizes the state of the parser in the event of an error.
+// When an error occurs while parsing a statement, we should discard the 
+// remaining tokens about the statement and start parsing the next statement.
+// A statement usually ends with a semicolon, and the next statement immediately
+// after it begins with a key word like "for", "if", "var", "return" etc.
 func (p *Parser) synchronize() {
 	p.advance()
 
