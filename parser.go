@@ -174,6 +174,7 @@ func (p *Parser) varDeclaration() (Stmt, error) {
 //			  | whileStmt
 //			  | forStmt
 //			  | breakStmt
+//			  | returnStmt
 //			  | printStmt
 //			  | block
 func (p *Parser) statement() (Stmt, error) {
@@ -205,11 +206,35 @@ func (p *Parser) statement() (Stmt, error) {
 	if p.match(BREAK) {
 		return p.breakStatement()
 	}
+
+	if p.match(RETURN) {
+		return p.returnStatement()
+	}
 	
 	return p.expressionStatement()
 }
 
-// breakStmt -> 
+// returnStmt -> "return" expression? ";"
+func (p *Parser) returnStatement() (Stmt, error) {
+	keyword := p.previous()
+	var value Expr
+	var err error
+
+	if !p.check(SEMICOLON) {
+		value, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err = p.consume(SEMICOLON, "Expect ';' after return value."); err != nil {
+		return nil, err
+	}
+
+	return &Return{Keyword: &keyword, Value: value}, nil
+}
+
+// breakStmt -> "break" ";"
 func (p *Parser) breakStatement() (Stmt, error) {
 	if p.loopDepth == 0 {
 		return nil, p.error(p.previous(), "Must be inside a loop to use 'break'.")

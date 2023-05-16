@@ -22,6 +22,11 @@ func (lf *LoxFunction) Call(interpreter *Interpreter, arguments []interface{}) (
 
 	err := interpreter.executeBlock(lf.Declaration.Body, environment)
 	if err != nil {
+		// catch the returnError and return the value.
+		if returnValue, isReturnError := err.(*returnError); isReturnError {
+			return returnValue.value, nil
+		}
+
 		return nil, err
 	}
 

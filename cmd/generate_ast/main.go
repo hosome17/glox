@@ -35,6 +35,7 @@ func main() {
 		"While      : Condition Expr, Body Stmt",
 		"Break      : ",
 		"Function   : Name *Token, Params []*Token, Body []Stmt",
+		"Return     : Keyword *Token, Value Expr",
 	})
 }
 

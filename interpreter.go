@@ -31,9 +31,7 @@ func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 func (i *Interpreter) Interpret(statements []Stmt) {
 	for _, statement := range statements {
 		if err := i.execute(statement); err != nil {
-			if _, isBreakError := err.(*breakError); !isBreakError {
-				i.errorPrinter.RuntimeError(err)
-			}
+			i.errorPrinter.RuntimeError(err)
 		}
 	}
 }
@@ -52,6 +50,21 @@ func (i *Interpreter) InterpretREPL(expression Expr) string {
 
 /* Implement StmtVisitor interface */
 
+func (i *Interpreter) VisitReturnStmt(stmt *Return) error {
+	var value interface{}
+	var err error
+
+	if stmt.Value != nil {
+		if value, err = i.evaluate(stmt.Value); err != nil {
+			return err
+		}
+	}
+
+	// like block statement, we return a returnError to back to the
+	// code that began executing the body.
+	return NewReturnError(value)
+}
+
 func (i *Interpreter) VisitFunctionStmt(stmt *Function) error {
 	function := &LoxFunction{Declaration: stmt}
 
@@ -68,14 +81,15 @@ func (i *Interpreter) VisitWhileStmt(stmt *While) error {
 	for {
 		cond, err := i.evaluate(stmt.Condition)
 		if err != nil {
-			if _, isBreakError := err.(*breakError); !isBreakError {
-				return err
-			}
+			return err
 		}
 
 		if isTruthy(cond) {
-			err = i.execute(stmt.Body)
-			if err != nil {
+			if err = i.execute(stmt.Body); err != nil {
+				if _, isBreakError := err.(*breakError); isBreakError {
+					return nil
+				}
+
 				return err
 			}
 		} else {
