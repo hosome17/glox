@@ -23,6 +23,7 @@ func main() {
 	// 	"Variable    : Name *Token",
 	// 	"Assign      : Name *Token, Value Expr",
 	// 	"Logical     : Left Expr, Operator *Token, Right Expr",
+	// 	"Call        : Callee Expr, Paren *Token, Arguments []Expr",
 	// })
 
 	defineAst(outputDir, "Stmt", []string{
@@ -33,6 +34,7 @@ func main() {
 		"If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
 		"While      : Condition Expr, Body Stmt",
 		"Break      : ",
+		"Function   : Name *Token, Params []*Token, Body []Stmt",
 	})
 }
 

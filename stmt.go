@@ -8,6 +8,7 @@ type StmtVisitor interface {
     VisitIfStmt(stmt *If) error
     VisitWhileStmt(stmt *While) error
     VisitBreakStmt(stmt *Break) error
+    VisitFunctionStmt(stmt *Function) error
 }
 
 type Stmt interface {
@@ -71,5 +72,15 @@ type Break struct {
 
 func (b *Break) Accept(visitor StmtVisitor) error {
     return visitor.VisitBreakStmt(b)
+}
+
+type Function struct {
+    Name *Token
+    Params []*Token
+    Body []Stmt
+}
+
+func (f *Function) Accept(visitor StmtVisitor) error {
+    return visitor.VisitFunctionStmt(f)
 }
 

@@ -9,6 +9,7 @@ type ExprVisitor interface {
     VisitVariableExpr(expr *Variable) (interface{}, error)
     VisitAssignExpr(expr *Assign) (interface{}, error)
     VisitLogicalExpr(expr *Logical) (interface{}, error)
+    VisitCallExpr(expr *Call) (interface{}, error)
 }
 
 type Expr interface {
@@ -87,3 +88,16 @@ func (l *Logical) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitLogicalExpr(l)
 }
 
+type Call struct {
+    Callee Expr
+
+    // paren stores the token for the closing parenthesis.
+    // We will use that token's location when we report a runtime error
+    // caused by a function call.
+    Paren *Token
+    Arguments []Expr
+}
+
+func (c *Call) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitCallExpr(c)
+}

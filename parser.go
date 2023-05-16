@@ -65,9 +65,20 @@ func  (p *Parser) ParseREPL() interface{} {
 	return statements
 }
 
-// declaration -> varDecl
+// declaration -> funDecl
+//				| varDecl
 //				| statement
 func (p *Parser) declaration() (Stmt, error) {
+	if p.match(FUN) {
+		function, err := p.function("function")
+		if err != nil {
+			p.synchronize()
+			return nil, err
+		}
+
+		return function, nil
+	}
+
 	if p.match(VAR) {
 		varDecl, err := p.varDeclaration()
 		if err != nil {
@@ -79,6 +90,61 @@ func (p *Parser) declaration() (Stmt, error) {
 	}
 
 	return p.statement()
+}
+
+// funDecl -> "fun" function
+// function -> IDENTIFIER "(" parameters? ")" block
+// Separate the function from funDecl in order to reuse this function rule
+// for declaring the methods of classes. The methods look similar to function
+// declarations, but are not preceded by "fun".
+//
+// parameters -> IDENTIFIER ( "," IDENTIFIER )*
+// It is like the arguments rule, except that each parameter is an identifier,
+// not an expression.
+func (p *Parser) function(kind string) (Stmt, error) {
+	name, err := p.consume(IDENTIFIER, "Expect " + kind + " name.")
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = p.consume(LEFT_PAREN, "Expect '(' after " + kind + " name."); err != nil {
+		return nil, err
+	}
+
+	parameters := []*Token{}
+	if !p.check(RIGHT_PAREN) {
+		for {
+			if len(parameters) >= 255 {
+				return nil, p.error(p.peek(), "Can't have more than 255 parameters.")
+			}
+
+			param, err := p.consume(IDENTIFIER, "Expect parameter name.")
+			if err != nil {
+				return nil, err
+			}
+
+			parameters = append(parameters, &param)
+
+			if !p.match(COMMA) {
+				break
+			}
+		}
+	}
+
+	if _, err = p.consume(RIGHT_PAREN, "Expect ')' after parameters."); err != nil {
+		return nil, err
+	}
+
+	if _, err = p.consume(LEFT_BRACE, "Expect '{' before " + kind + " body."); err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Function{Name: &name, Params: parameters, Body: body}, nil
 }
 
 // varDecl -> "var" IDENTIFIER ( "=" expression )? ";"
@@ -546,7 +612,7 @@ func (p *Parser) factor() (Expr, error) {
 }
 
 // unary -> ( "!" | "-" ) unary
-//		  | primary
+//		  | call
 func (p *Parser) unary() (Expr, error) {
 	if p.match(BANG, MINUS) {
 		operator := p.previous()
@@ -558,7 +624,72 @@ func (p *Parser) unary() (Expr, error) {
 		return &Unary{Operator: &operator, Right: right}, nil
 	}
 
-	return p.primary()
+	return p.call()
+}
+
+// call -> primary ( "(" arguments? ")" )*
+func (p *Parser) call() (Expr, error) {
+	expr, err := p.primary()
+	if err != nil {
+		return nil, err
+	}
+
+	/*
+	getCallback()();
+
+	The first pair of parentheses has "getCallback" as its callee.
+	But the second call has the entire "getCallback()" expression as its callee.
+	We can think of a call as sort of like a postfix operator that starts with '('.
+	*/
+
+	for { // loop to check if the new expr(a finished call) is called.
+		if p.match(LEFT_PAREN) {
+			// now expr is the callee.
+			expr, err = p.finishCall(expr)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			break
+		}
+	}
+
+	return expr, nil
+}
+
+// arguments -> expression ( "," expression )*
+// finishCall parses the argument list of the function call.
+func (p *Parser) finishCall(callee Expr) (Expr, error) {
+	arguments :=  []Expr{}
+
+	// check if the call has arguments or not.
+	// the next token is ')' in the zero-argument case.
+	if !p.check(RIGHT_PAREN) {
+		for {
+			// limit the number of arguments.
+			if len(arguments) >= 255 {
+				return nil, p.error(p.peek(), "Can't have more than 255 arguments.")
+			}
+
+			arg, err := p.expression()
+			if err != nil {
+				return nil, err
+			}
+
+			arguments = append(arguments, arg)
+
+			if !p.match(COMMA) {
+				break
+			}
+		}
+	}
+
+	paren, err := p.consume(RIGHT_PAREN, "Expect ')' after arguments.")
+	if err != nil {
+		return nil, err
+	}
+
+	return &Call{Callee: callee, Paren: &paren, Arguments: arguments}, nil
 }
 
 // primary -> NUMBER | STRING | "true" | "false" | "nil"

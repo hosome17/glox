@@ -6,14 +6,25 @@ import (
 )
 
 type Interpreter struct {
+	// errorPrinter reports the runtimeErrors during interpreting.
 	errorPrinter *ErrorPrinter
-	environment *Environment
+
+	// environment tracks the current environment. It changes as we enter
+	// and exit local scopes. 
+	environment  *Environment
+
+	// globals holds a fixed reference to the outermost global environment.
+	// It provides the interpreter with access to the native functions.
+	globals		 *Environment
 }
 
 func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
+	env := NewEnvironment(nil)
+	env.Define("clock", &Clock{})
 	return &Interpreter{
 		errorPrinter: errorPrinter,
-		environment: NewEnvironment(nil),
+		globals: env,
+		environment: env,
 	}
 }
 
@@ -40,6 +51,14 @@ func (i *Interpreter) InterpretREPL(expression Expr) string {
 }
 
 /* Implement StmtVisitor interface */
+
+func (i *Interpreter) VisitFunctionStmt(stmt *Function) error {
+	function := &LoxFunction{Declaration: stmt}
+
+	i.environment.Define(stmt.Name.Lexeme, function)
+
+	return nil
+}
 
 func (i *Interpreter) VisitBreakStmt(stmt *Break) error {
 	return NewBreakError()
@@ -142,6 +161,41 @@ func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) 
 }
 
 /* Implement ExprVisitor interface */
+
+func (i *Interpreter) VisitCallExpr(expr *Call) (interface{}, error) {
+	callee, err := i.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+
+	arguments := []interface{}{}
+	for _, arg := range expr.Arguments {
+		argument, err := i.evaluate(arg)
+		if err != nil {
+			return nil, err
+		}
+
+		arguments = append(arguments, argument)
+	}
+
+	// check the type to make sure that the callee can be called indeed.
+	if _, isLoxCallable := callee.(LoxCallable); !isLoxCallable {
+		return nil, NewRuntimeError(expr.Paren, "Can only call functions and classes.")
+	}
+	function := callee.(LoxCallable)
+
+	// check the number of arguments.
+	if uint32(len(arguments)) != function.Arity() {
+		return nil, NewRuntimeError(expr.Paren, fmt.Sprintf("Expected %d arguments but got %d.", function.Arity(), len(arguments)))
+	}
+
+	ret, err := function.Call(i, arguments)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
 
 func (i *Interpreter) VisitLogicalExpr(expr *Logical) (interface{}, error) {
 	left, err := i.evaluate(expr.Left)
