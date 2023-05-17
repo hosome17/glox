@@ -69,7 +69,9 @@ func  (p *Parser) ParseREPL() interface{} {
 //				| varDecl
 //				| statement
 func (p *Parser) declaration() (Stmt, error) {
-	if p.match(FUN) {
+	if p.check(FUN) && p.checkNext(IDENTIFIER) {
+		p.consume(FUN, "")
+		
 		function, err := p.function("function")
 		if err != nil {
 			p.synchronize()
@@ -107,15 +109,26 @@ func (p *Parser) function(kind string) (Stmt, error) {
 		return nil, err
 	}
 
-	if _, err = p.consume(LEFT_PAREN, "Expect '(' after " + kind + " name."); err != nil {
+	fnBody, err := p.functionBody(kind)
+	if err != nil {
+		return nil, err
+	}
+	fn := fnBody.(*FunctionExpr)
+
+	return &Function{Name: &name, Function: *fn}, nil
+}
+
+// functionBody is separated from "function()" to support anonymous functions.
+func (p *Parser) functionBody(kind string) (Expr, error) {
+	if _, err := p.consume(LEFT_PAREN, "Expect '(' after " + kind + " name."); err != nil {
 		return nil, err
 	}
 
 	parameters := []*Token{}
 	if !p.check(RIGHT_PAREN) {
 		for {
-			if len(parameters) >= 255 {
-				return nil, p.error(p.peek(), "Can't have more than 255 parameters.")
+			if len(parameters) >= 8 {
+				return nil, p.error(p.peek(), "Can't have more than 8 parameters.")
 			}
 
 			param, err := p.consume(IDENTIFIER, "Expect parameter name.")
@@ -131,11 +144,11 @@ func (p *Parser) function(kind string) (Stmt, error) {
 		}
 	}
 
-	if _, err = p.consume(RIGHT_PAREN, "Expect ')' after parameters."); err != nil {
+	if _, err := p.consume(RIGHT_PAREN, "Expect ')' after parameters."); err != nil {
 		return nil, err
 	}
 
-	if _, err = p.consume(LEFT_BRACE, "Expect '{' before " + kind + " body."); err != nil {
+	if _, err := p.consume(LEFT_BRACE, "Expect '{' before " + kind + " body."); err != nil {
 		return nil, err
 	}
 
@@ -144,7 +157,7 @@ func (p *Parser) function(kind string) (Stmt, error) {
 		return nil, err
 	}
 
-	return &Function{Name: &name, Params: parameters, Body: body}, nil
+	return &FunctionExpr{Paramters: parameters, Body: body}, nil
 }
 
 // varDecl -> "var" IDENTIFIER ( "=" expression )? ";"
@@ -744,6 +757,13 @@ func (p *Parser) primary() (Expr, error) {
 		}
 
 		return &Grouping{Expression: expr}, nil
+	case p.match(FUN):
+		fn, err := p.functionBody("function")
+		if err != nil {
+			return nil, err
+		}
+
+		return fn, nil
 	}
 
 	return nil, p.error(p.peek(), "Expect expression.")
@@ -769,6 +789,19 @@ func (p *Parser) check(_type TokenType) bool {
 	}
 
 	return p.peek().Type == _type
+}
+
+// checkNext
+func (p *Parser) checkNext(_type TokenType) bool {
+	if p.isAtEnd() {
+		return false
+	}
+
+	if p.tokens[p.current+1].Type == EOF {
+		return false
+	}
+
+	return p.tokens[p.current+1].Type == _type
 }
 
 // advance moves the parser to the next token and returns the previous token.

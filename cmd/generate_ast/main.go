@@ -14,28 +14,29 @@ func main() {
 	}
 	outputDir := os.Args[1]
 
-	// defineAst(outputDir, "Expr", []string{
-	// 	"Binary      : Left Expr, Operator *Token, Right Expr",
-	// 	"Grouping    : Expression Expr",
-	// 	"Literal     : Value interface{}",
-	// 	"Unary       : Operator *Token, Right Expr",
-	// 	"Conditional : Cond Expr, Consequent Expr, Alternate Expr",
-	// 	"Variable    : Name *Token",
-	// 	"Assign      : Name *Token, Value Expr",
-	// 	"Logical     : Left Expr, Operator *Token, Right Expr",
-	// 	"Call        : Callee Expr, Paren *Token, Arguments []Expr",
-	// })
+	defineAst(outputDir, "Expr", []string{
+		"Binary       : Left Expr, Operator *Token, Right Expr",
+		"Grouping     : Expression Expr",
+		"Literal      : Value interface{}",
+		"Unary        : Operator *Token, Right Expr",
+		"Conditional  : Cond Expr, Consequent Expr, Alternate Expr",
+		"Variable     : Name *Token",
+		"Assign       : Name *Token, Value Expr",
+		"Logical      : Left Expr, Operator *Token, Right Expr",
+		"Call         : Callee Expr, Paren *Token, Arguments []Expr",
+		"FunctionExpr : Paramters []*Token, Body []Stmt", // support for anonymous functions
+	})
 
 	defineAst(outputDir, "Stmt", []string{
-		"Expression : Expression Expr",
-		"Print      : Expression Expr",
-		"Var        : Name *Token, Initializer Expr",
-		"Block      : Statements []Stmt",
-		"If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
-		"While      : Condition Expr, Body Stmt",
-		"Break      : ",
-		"Function   : Name *Token, Params []*Token, Body []Stmt",
-		"Return     : Keyword *Token, Value Expr",
+		"Expression   : Expression Expr",
+		"Print        : Expression Expr",
+		"Var          : Name *Token, Initializer Expr",
+		"Block        : Statements []Stmt",
+		"If           : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
+		"While        : Condition Expr, Body Stmt",
+		"Break        : ",
+		"Function     : Name *Token, Function FunctionExpr",
+		"Return       : Keyword *Token, Value Expr",
 	})
 }
 
@@ -53,8 +54,11 @@ func defineAst(outputDir string, baseName string, types []string) {
 	defineVisitor(w, baseName, types)
 
 	w.WriteString("type " + baseName + " interface {\n")
-	// w.WriteString("    Accept(visitor " + baseName + "Visitor) (interface{}, error)\n")	// Expr
-	w.WriteString("    Accept(visitor " + baseName + "Visitor) error\n")	// Stmt
+	if baseName == "Expr" {
+		w.WriteString("    Accept(visitor " + baseName + "Visitor) (interface{}, error)\n")	// Expr
+	} else {
+		w.WriteString("    Accept(visitor " + baseName + "Visitor) error\n")	// Stmt
+	}
 	w.WriteString("}\n\n")
 
 	for _, t := range types {
@@ -72,8 +76,11 @@ func defineVisitor(w *bufio.Writer, baseName string, types []string) {
 	w.WriteString("type " + baseName + "Visitor interface {\n")
 	for _, t := range types {
 		typeName := strings.Trim(strings.Split(t, ":")[0], " ")
-		// w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") (interface{}, error)\n")	// Expr
-		w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") error\n")	// Stmt
+		if baseName == "Expr" {
+			w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") (interface{}, error)\n")	// Expr
+		} else {
+			w.WriteString("    Visit" + typeName + baseName + "(" + strings.ToLower(baseName) + " *" + typeName + ") error\n")	// Stmt
+		}
 	}
 
 	w.WriteString("}\n\n")
@@ -95,8 +102,12 @@ func defineType(w *bufio.Writer, baseName string, className string, fieldList st
 
 	// implements the base interface.
 	receiver := string(strings.ToLower(className)[0])
-	// w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) (interface{}, error) {\n")	// Expr
-	w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) error {\n")	// Stmt
+	if baseName == "Expr" {
+		w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) (interface{}, error) {\n")	// Expr
+
+	} else {
+		w.WriteString("func (" + receiver + " *" + className + ") Accept(visitor " + baseName + "Visitor) error {\n")	// Stmt
+	}
 	w.WriteString("    return visitor.Visit" + className + baseName + "(" + receiver + ")\n")
 	w.WriteString("}\n\n")
 }

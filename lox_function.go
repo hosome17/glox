@@ -4,7 +4,8 @@ package glox
 // It wraps the Function and avoids the runtime phase of the interpreter
 // to bleed into the front end’s syntax classes.
 type LoxFunction struct {
-	Declaration *Function
+	Name        string
+	Declaration *FunctionExpr
 
 	// Closure stores the environment that holds on to the surrounding variables
 	// when the function is declared.
@@ -20,7 +21,7 @@ func (lf *LoxFunction) Call(interpreter *Interpreter, arguments []interface{}) (
 	// environment, even though they are all calls to the same function.
 	environment := NewEnvironment(lf.Closure)
 
-	for i, param := range lf.Declaration.Params {
+	for i, param := range lf.Declaration.Paramters {
 		environment.Define(param.Lexeme, arguments[i])
 	}
 
@@ -39,9 +40,13 @@ func (lf *LoxFunction) Call(interpreter *Interpreter, arguments []interface{}) (
 
 // Arity returns the number of the parameter list.
 func (lf *LoxFunction) Arity() uint32 {
-	return uint32(len(lf.Declaration.Params))
+	return uint32(len(lf.Declaration.Paramters))
 }
 
 func (lf *LoxFunction) String() string {
-	return "<function: " + lf.Declaration.Name.Lexeme + ">"
+	if lf.Name == "" {
+		return "<anonymous function>"
+	}
+
+	return "<function: " + lf.Name + ">"
 }

@@ -77,8 +77,7 @@ func (b *Break) Accept(visitor StmtVisitor) error {
 
 type Function struct {
     Name *Token
-    Params []*Token
-    Body []Stmt
+    Function FunctionExpr
 }
 
 func (f *Function) Accept(visitor StmtVisitor) error {

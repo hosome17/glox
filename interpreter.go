@@ -67,9 +67,10 @@ func (i *Interpreter) VisitReturnStmt(stmt *Return) error {
 
 func (i *Interpreter) VisitFunctionStmt(stmt *Function) error {
 	// This is the environment that is active when the function is declared not when it’s called.
-	function := &LoxFunction{Declaration: stmt, Closure: i.environment}
+	fnName := stmt.Name.Lexeme
+	function := &LoxFunction{Name: fnName, Declaration: &stmt.Function, Closure: i.environment}
 
-	i.environment.Define(stmt.Name.Lexeme, function)
+	i.environment.Define(fnName, function)
 
 	return nil
 }
@@ -176,6 +177,10 @@ func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) 
 }
 
 /* Implement ExprVisitor interface */
+
+func (i *Interpreter) VisitFunctionExprExpr(expr *FunctionExpr) (interface{}, error) {
+	return &LoxFunction{Name: "", Declaration: expr, Closure: i.environment}, nil
+}
 
 func (i *Interpreter) VisitCallExpr(expr *Call) (interface{}, error) {
 	callee, err := i.evaluate(expr.Callee)
