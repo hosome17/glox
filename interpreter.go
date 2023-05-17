@@ -66,7 +66,8 @@ func (i *Interpreter) VisitReturnStmt(stmt *Return) error {
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt *Function) error {
-	function := &LoxFunction{Declaration: stmt}
+	// This is the environment that is active when the function is declared not when it’s called.
+	function := &LoxFunction{Declaration: stmt, Closure: i.environment}
 
 	i.environment.Define(stmt.Name.Lexeme, function)
 

@@ -5,6 +5,10 @@ package glox
 // to bleed into the front end’s syntax classes.
 type LoxFunction struct {
 	Declaration *Function
+
+	// Closure stores the environment that holds on to the surrounding variables
+	// when the function is declared.
+	Closure		*Environment
 }
 
 // Call provides a local scope to the function argument and executes
@@ -14,7 +18,7 @@ func (lf *LoxFunction) Call(interpreter *Interpreter, arguments []interface{}) (
 	// created dynamically as the function call. If there are multiple calls
 	// to the same function in play at the same time, each needs its own
 	// environment, even though they are all calls to the same function.
-	environment := NewEnvironment(interpreter.globals)
+	environment := NewEnvironment(lf.Closure)
 
 	for i, param := range lf.Declaration.Params {
 		environment.Define(param.Lexeme, arguments[i])
