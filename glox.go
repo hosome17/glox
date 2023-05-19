@@ -93,5 +93,12 @@ func (g *Glox) run(source string) {
 		return
 	}
 
+	resolver := NewResolver(g.interpreter, g.errorPrinter)
+	resolver.resolveStatements(stmts)
+
+	if g.errorPrinter.hadError {
+		return
+	}
+
 	g.interpreter.Interpret(stmts)
 }

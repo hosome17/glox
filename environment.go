@@ -42,6 +42,10 @@ func (e *Environment) Get(name *Token) (interface{}, error) {
 	return val, nil
 }
 
+func (e *Environment) GetAt(distance int, name string) interface{} {
+	return e.ancestor(distance).values[name]
+}
+
 // Assign assigns a new value to the variable.
 // It looks up the variable in the same way as Get(), and it
 // assigns value to the variable when finds it.
@@ -56,4 +60,18 @@ func (e *Environment) Assign(name *Token, val interface{}) error {
 
 	e.values[name.Lexeme] = val
 	return nil
+}
+
+func (e *Environment) AssignAt(distance int, name *Token, val interface{}) {
+	e.ancestor(distance).values[name.Lexeme] = val
+}
+
+// ancestor walks a fixed number of hops up the parent chain and returns the environment there.
+func (e *Environment) ancestor(distance int) *Environment {
+	env := e
+	for i:= 0; i < distance; i++ {
+		env = env.enclosing
+	}
+
+	return env
 }

@@ -16,6 +16,11 @@ type Interpreter struct {
 	// globals holds a fixed reference to the outermost global environment.
 	// It provides the interpreter with access to the native functions.
 	globals		 *Environment
+
+	// locals stores the number of hops from the current environment to the
+	// environment where the variable is defined for every variables in the
+	// local scope.
+	locals		 map[Expr]int
 }
 
 func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
@@ -25,6 +30,7 @@ func NewInterpreter(errorPrinter *ErrorPrinter) *Interpreter {
 		errorPrinter: errorPrinter,
 		globals: env,
 		environment: env,
+		locals: make(map[Expr]int),
 	}
 }
 
@@ -244,16 +250,23 @@ func (i *Interpreter) VisitAssignExpr(expr *Assign) (interface{}, error) {
 		return nil, err
 	}
 
-	err = i.environment.Assign(expr.Name, val)
-	if err != nil {
-		return nil, err
+	// We look up the variable’s scope distance. If not found, we assume
+	// it’s global.
+	distance, ok := i.locals[expr]
+	if ok {
+		i.environment.AssignAt(distance, expr.Name, val)
+	} else {
+		err := i.globals.Assign(expr.Name, val)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return val, nil
 }
 
 func (i *Interpreter) VisitVariableExpr(expr *Variable) (interface{}, error) {
-	return i.environment.Get(expr.Name)
+	return i.lookUpVariable(expr.Name, expr)
 }
 
 func (i *Interpreter) VisitLiteralExpr(expr *Literal) (interface{}, error) {
@@ -414,6 +427,25 @@ func (i *Interpreter) checkNumberOperands(operator *Token, operand1 interface{},
 	}
 
 	return NewRuntimeError(operator, "Operands must be numbers.")
+}
+
+// resolve is called by Resolver to tell the Interpreter how many scopes there
+// are between the current scope and the scope where the variable is defined
+// each time it visits a variable.
+func (i *Interpreter) resolve(expr Expr, depth int) {
+	i.locals[expr] = depth
+}
+
+// lookUpVariable firstly look up the resolved distance in the map. If the
+// distance can not be found in the map, the variable must be global. If we
+// do get a distance, then we call GetAt() to get the variable.
+func (i *Interpreter) lookUpVariable(name *Token, expr Expr) (interface{}, error) {
+	distance, ok := i.locals[expr]
+	if ok {
+		return i.environment.GetAt(distance, name.Lexeme), nil
+	} else {
+		return i.globals.Get(name)
+	}
 }
 
 // isTruthy determines the truthfulness of a value.
