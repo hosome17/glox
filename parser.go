@@ -109,7 +109,8 @@ func (p *Parser) declaration() (Stmt, error) {
 	return p.statement()
 }
 
-// classDecl -> "class" IDENTIFIER "{" function* "}"
+// classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER )?
+//				"{" function* "}"
 // Like most dynamically typed languages, fields are not explicitly listed
 // in the class declaration. Instances are loose bags of data and you can
 // freely add fields to them as you see fit using normal imperative code.
@@ -117,6 +118,15 @@ func (p *Parser) classDeclaration() (Stmt, error) {
 	name, err := p.consume(IDENTIFIER, "Expect class name.")
 	if err != nil {
 		return nil, err
+	}
+
+	var superclass *Variable
+	if p.match(LESS) {
+		if _, err := p.consume(IDENTIFIER, "Expect superclass name."); err != nil {
+			return nil, err
+		}
+		n := p.previous()
+		superclass = &Variable{Name: &n}
 	}
 
 	_, err = p.consume(LEFT_BRACE, "Expect '{' before class body.")
@@ -139,7 +149,7 @@ func (p *Parser) classDeclaration() (Stmt, error) {
 		return nil, err
 	}
 
-	return &Class{Name: &name, Methods: methods}, nil
+	return &Class{Name: &name, Superclass: superclass, Methods: methods}, nil
 }
 
 // funDecl -> "fun" function
@@ -801,6 +811,8 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 }
 
 // primary -> NUMBER | STRING | "true" | "false" | "nil"
+//			| "this"
+//			| "super" "." IDENTIFIER
 //			| IDENTIFIER
 // 			| "(" expression ")"
 func (p *Parser) primary() (Expr, error) {
@@ -837,6 +849,19 @@ func (p *Parser) primary() (Expr, error) {
 	case p.match(THIS):
 		kw := p.previous()
 		return &This{Keyword: &kw}, nil
+	case p.match(SUPER):
+		kw := p.previous()
+		_, err := p.consume(DOT, "Expect '.' after 'super'.")
+		if err != nil {
+			return nil, err
+		}
+
+		method, err := p.consume(IDENTIFIER, "Expect superclass method name.")
+		if err != nil {
+			return nil, err
+		}
+
+		return &Super{Keyword: &kw, Method: &method}, nil
 	}
 
 	return nil, p.error(p.peek(), "Expect expression.")

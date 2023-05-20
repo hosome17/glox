@@ -14,6 +14,7 @@ type ExprVisitor interface {
     VisitGetExpr(expr *Get) (interface{}, error)
     VisitSetExpr(expr *Set) (interface{}, error)
     VisitThisExpr(expr *This) (interface{}, error)
+    VisitSuperExpr(expr *Super) (interface{}, error)
 }
 
 type Expr interface {
@@ -136,5 +137,14 @@ type This struct {
 
 func (t *This) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitThisExpr(t)
+}
+
+type Super struct {
+    Keyword *Token
+    Method *Token
+}
+
+func (s *Super) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitSuperExpr(s)
 }
 

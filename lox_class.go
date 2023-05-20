@@ -5,6 +5,7 @@ package glox
 // freely add fields to them as you see fit using normal imperative code.
 type LoxClass struct {
 	Name string
+	Superclass *LoxClass
 
 	// Methods stores methods for the class. Where an instance stores state,
 	// the class stores behavior. Even though methods are owned by the class,
@@ -12,8 +13,8 @@ type LoxClass struct {
 	Methods map[string]*LoxFunction
 }
 
-func NewLoxClass(name string, methods map[string]*LoxFunction) *LoxClass {
-	return &LoxClass{Name: name, Methods: methods}
+func NewLoxClass(name string, superclass *LoxClass, methods map[string]*LoxFunction) *LoxClass {
+	return &LoxClass{Name: name, Superclass: superclass, Methods: methods}
 }
 
 // Call return an instance of this class.
@@ -45,6 +46,10 @@ func (lc *LoxClass) String() string {
 func (lc *LoxClass) findMethod(name string) *LoxFunction {
 	if method, ok := lc.Methods[name]; ok {
 		return method
+	}
+
+	if lc.Superclass != nil {
+		return lc.Superclass.findMethod(name)
 	}
 
 	return nil

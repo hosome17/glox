@@ -57,7 +57,28 @@ func (i *Interpreter) InterpretREPL(expression Expr) string {
 /* Implement StmtVisitor interface */
 
 func (i *Interpreter) VisitClassStmt(stmt *Class) error {
+	var superclass interface{}
+	var err error
+	var sc *LoxClass
+
+	if stmt.Superclass != nil {
+		superclass, err = i.evaluate(stmt.Superclass)
+		if err != nil {
+			return err
+		}
+
+		var isLoxClass bool
+		if sc, isLoxClass = superclass.(*LoxClass); !isLoxClass {
+			return NewRuntimeError(stmt.Superclass.Name, "Superclass must be a class.")
+		}
+	}
+
 	i.environment.Define(stmt.Name.Lexeme, nil)
+
+	if stmt.Superclass != nil {
+		i.environment = NewEnvironment(i.environment)
+		i.environment.Define("super", superclass)
+	}
 
 	methods := map[string]*LoxFunction{}
 	for _, method := range stmt.Methods {
@@ -66,10 +87,15 @@ func (i *Interpreter) VisitClassStmt(stmt *Class) error {
 		methods[method.Name.Lexeme] = function
 	}
 
-	class := NewLoxClass(stmt.Name.Lexeme, methods)
+	class := NewLoxClass(stmt.Name.Lexeme, sc, methods)
+
+	if superclass != nil {
+		i.environment = i.environment.enclosing
+	}
+
 	// That two-stage variable binding process allows references to the
 	// class inside its own methods.
-	err := i.environment.Assign(stmt.Name, class)
+	err = i.environment.Assign(stmt.Name, class)
 	if err != nil {
 		return err
 	}
@@ -204,6 +230,21 @@ func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) 
 }
 
 /* Implement ExprVisitor interface */
+
+func (i *Interpreter) VisitSuperExpr(expr *Super) (interface{}, error) {
+	distance := i.locals[expr]
+	superclass := i.environment.GetAt(distance, "super").(*LoxClass)
+
+	object := i.environment.GetAt(distance-1, "this").(*LoxInstance)
+
+	method := superclass.findMethod(expr.Method.Lexeme)
+
+	if method == nil {
+		return nil, NewRuntimeError(expr.Method, "Undefined property '" + expr.Method.Lexeme + "'.")
+	}
+
+	return method.Bind(object), nil
+}
 
 func (i *Interpreter) VisitThisExpr(expr *This) (interface{}, error) {
 	return i.lookUpVariable(expr.Keyword, expr)

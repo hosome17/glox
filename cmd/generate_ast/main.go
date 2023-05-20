@@ -28,6 +28,7 @@ func main() {
 		"Get          : Object Expr, Name *Token",
 		"Set          : Object Expr, Name *Token, Value Expr",
 		"This         : Keyword *Token",
+		"Super        : Keyword *Token, Method *Token",
 	})
 
 	defineAst(outputDir, "Stmt", []string{
@@ -40,7 +41,7 @@ func main() {
 		"Break        : ",
 		"Function     : Name *Token, Function FunctionExpr",
 		"Return       : Keyword *Token, Value Expr",
-		"Class        : Name *Token, Methods []Function",
+		"Class        : Name *Token, Superclass *Variable, Methods []Function",
 	})
 }
 

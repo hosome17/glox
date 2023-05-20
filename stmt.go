@@ -96,6 +96,7 @@ func (r *Return) Accept(visitor StmtVisitor) error {
 
 type Class struct {
     Name *Token
+    Superclass *Variable
     Methods []Function
 }
 

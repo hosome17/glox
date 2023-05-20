@@ -4,6 +4,7 @@ type ClassType int
 const (
 	ClassType_NONE ClassType = iota
 	ClassType_CLASS
+	ClassType_SUBCLASS
 )
 
 type FunctionType int
@@ -64,6 +65,20 @@ func (r *Resolver) VisitClassStmt(stmt *Class) error {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 
+	if stmt.Superclass != nil && stmt.Name.Lexeme == stmt.Superclass.Name.Lexeme {
+		r.errorPrinter.TokenError(*stmt.Superclass.Name, "A class can't inherit from itself.")
+	}
+
+	if stmt.Superclass != nil {
+		r.currentClass = ClassType_SUBCLASS
+		r.resolveExpression(stmt.Superclass)
+	}
+
+	if stmt.Superclass != nil {
+		r.beginScope()
+		r.scopes.Peek()["super"] = true
+	}
+
 	r.beginScope()
 	r.scopes.Peek()["this"] = true
 
@@ -78,6 +93,10 @@ func (r *Resolver) VisitClassStmt(stmt *Class) error {
 	}
 
 	r.endScope()
+
+	if stmt.Superclass != nil {
+		r.endScope()
+	}
 
 	r.currentClass = enclosingClass
 
@@ -177,6 +196,20 @@ func (r *Resolver) VisitExpressionStmt(stmt *Expression) error {
 	r.resolveExpression(stmt.Expression)
 
 	return nil
+}
+
+func (r *Resolver) VisitSuperExpr(expr *Super) (interface{}, error) {
+	if r.currentClass == ClassType_NONE {
+		r.errorPrinter.TokenError(*expr.Keyword, "Can't use 'super' outside of a class.")
+		return nil, nil
+	} else if r.currentClass != ClassType_SUBCLASS {
+		r.errorPrinter.TokenError(*expr.Keyword, "Can't use 'super' in a class with no superclass.")
+		return nil, nil
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
+
+	return nil, nil
 }
 
 func (r *Resolver) VisitThisExpr(expr *This) (interface{}, error) {
