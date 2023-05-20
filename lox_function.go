@@ -10,6 +10,7 @@ type LoxFunction struct {
 	// Closure stores the environment that holds on to the surrounding variables
 	// when the function is declared.
 	Closure		*Environment
+	isInitializer bool
 }
 
 // Call provides a local scope to the function argument and executes
@@ -29,10 +30,18 @@ func (lf *LoxFunction) Call(interpreter *Interpreter, arguments []interface{}) (
 	if err != nil {
 		// catch the returnError and return the value.
 		if returnValue, isReturnError := err.(*returnError); isReturnError {
+			if lf.isInitializer {
+				return lf.Closure.GetAt(0, "this"), nil
+			}
+			
 			return returnValue.value, nil
 		}
 
 		return nil, err
+	}
+
+	if lf.isInitializer {
+		return lf.Closure.GetAt(0, "this"), nil
 	}
 
 	return nil, nil
@@ -49,4 +58,10 @@ func (lf *LoxFunction) String() string {
 	}
 
 	return "<function: " + lf.Name + ">"
+}
+
+func (lf *LoxFunction) Bind(instance *LoxInstance) *LoxFunction {
+	env := NewEnvironment(lf.Closure)
+	env.Define("this", instance)
+	return &LoxFunction{Declaration: lf.Declaration, Closure: env, isInitializer: lf.isInitializer}
 }

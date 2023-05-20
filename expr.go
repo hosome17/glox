@@ -11,6 +11,9 @@ type ExprVisitor interface {
     VisitLogicalExpr(expr *Logical) (interface{}, error)
     VisitCallExpr(expr *Call) (interface{}, error)
     VisitFunctionExprExpr(expr *FunctionExpr) (interface{}, error)
+    VisitGetExpr(expr *Get) (interface{}, error)
+    VisitSetExpr(expr *Set) (interface{}, error)
+    VisitThisExpr(expr *This) (interface{}, error)
 }
 
 type Expr interface {
@@ -106,5 +109,32 @@ type FunctionExpr struct {
 
 func (f *FunctionExpr) Accept(visitor ExprVisitor) (interface{}, error) {
     return visitor.VisitFunctionExprExpr(f)
+}
+
+type Get struct {
+    Object Expr
+    Name *Token
+}
+
+func (g *Get) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitGetExpr(g)
+}
+
+type Set struct {
+    Object Expr
+    Name *Token
+    Value Expr
+}
+
+func (s *Set) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitSetExpr(s)
+}
+
+type This struct {
+    Keyword *Token
+}
+
+func (t *This) Accept(visitor ExprVisitor) (interface{}, error) {
+    return visitor.VisitThisExpr(t)
 }
 

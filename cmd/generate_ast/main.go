@@ -25,6 +25,9 @@ func main() {
 		"Logical      : Left Expr, Operator *Token, Right Expr",
 		"Call         : Callee Expr, Paren *Token, Arguments []Expr",
 		"FunctionExpr : Paramters []*Token, Body []Stmt", // support for anonymous functions
+		"Get          : Object Expr, Name *Token",
+		"Set          : Object Expr, Name *Token, Value Expr",
+		"This         : Keyword *Token",
 	})
 
 	defineAst(outputDir, "Stmt", []string{
@@ -37,6 +40,7 @@ func main() {
 		"Break        : ",
 		"Function     : Name *Token, Function FunctionExpr",
 		"Return       : Keyword *Token, Value Expr",
+		"Class        : Name *Token, Methods []Function",
 	})
 }
 

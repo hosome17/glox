@@ -11,6 +11,10 @@ type Parser struct {
 	// for REPL
 	allowExpression bool
 	foundExpression bool
+
+	// disableCommaExpr is used to avoid conflicts between comma expressions
+	// and parameter lists.
+	disableCommaExpr	bool
 }
 
 func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
@@ -20,6 +24,7 @@ func NewParser(tokens []Token, errorPrinter *ErrorPrinter) *Parser {
 		errorPrinter: errorPrinter,
 		loopDepth: 0,
 		foundExpression: false,
+		disableCommaExpr: false,
 	}
 }
 
@@ -65,10 +70,20 @@ func  (p *Parser) ParseREPL() interface{} {
 	return statements
 }
 
-// declaration -> funDecl
+// declaration -> classDecl
+//				| funDecl
 //				| varDecl
 //				| statement
 func (p *Parser) declaration() (Stmt, error) {
+	if p.match(CLASS) {
+		classDecl, err := p.classDeclaration()
+		if err != nil {
+			return nil, err
+		}
+
+		return classDecl, nil
+	}
+
 	if p.check(FUN) && p.checkNext(IDENTIFIER) {
 		p.consume(FUN, "")
 		
@@ -92,6 +107,39 @@ func (p *Parser) declaration() (Stmt, error) {
 	}
 
 	return p.statement()
+}
+
+// classDecl -> "class" IDENTIFIER "{" function* "}"
+// Like most dynamically typed languages, fields are not explicitly listed
+// in the class declaration. Instances are loose bags of data and you can
+// freely add fields to them as you see fit using normal imperative code.
+func (p *Parser) classDeclaration() (Stmt, error) {
+	name, err := p.consume(IDENTIFIER, "Expect class name.")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = p.consume(LEFT_BRACE, "Expect '{' before class body.")
+	if err != nil {
+		return nil, err
+	}
+
+	methods := []Function{}
+	for !p.check(RIGHT_BRACE) && !p.isAtEnd() {
+		method, err := p.function("method")
+		if err != nil {
+			return nil, err
+		}
+
+		methods = append(methods, *method.(*Function))
+	}
+
+	_, err = p.consume(RIGHT_BRACE, "Expect '}' after class body.")
+	if err != nil {
+		return nil, err
+	}
+
+	return &Class{Name: &name, Methods: methods}, nil
 }
 
 // funDecl -> "fun" function
@@ -454,8 +502,8 @@ func (p *Parser) expression() (Expr, error) {
 	return p.assignment()
 }
 
-// assignment -> IDENTIFIER "=" assignment
-//			   | series
+// assignment -> ( call "." )? IDENTIFIER "=" assignment
+//			   | comma
 func (p *Parser) assignment() (Expr, error) {
 	expr, err := p.comma()
 	if err != nil {
@@ -468,13 +516,22 @@ func (p *Parser) assignment() (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		variable, isVariable := expr.(*Variable)
-		if !isVariable {
+		
+		if variable, isVariable := expr.(*Variable); isVariable {
+			return &Assign{Name: variable.Name, Value: val}, nil
+		} else if get, isGet := expr.(*Get); isGet {
+			// breakfast.omelette.filling.meat = ham
+			//          ~[Get]   ~[Get]  ~[Set]~
+			// The trick we do is parse the left-hand side as a normal
+			// expression. Then, when we stumble onto the equal sign after
+			// it, we take the expression we already parsed and transform
+			// it into the correct syntax tree node for the assignment. We
+			// add another clause to that transformation to handle turning
+			// an Get expression on the left into the corresponding Set.
+			return &Set{Object: get.Object, Name: get.Name, Value: val}, nil
+		} else {
 			return nil, p.error(equals, "Invalid assignment target.")
 		}
-
-		return &Assign{Name: variable.Name, Value: val}, nil
 	}
 
 	return expr, nil
@@ -487,14 +544,16 @@ func (p *Parser) comma() (Expr, error) {
 		return nil, err
 	}
 
-	for p.match(COMMA) {
-		operator := p.previous()
-		right, err := p.conditional()
-		if err != nil {
-			return nil, err
+	if !p.disableCommaExpr {
+		for p.match(COMMA) {
+			operator := p.previous()
+			right, err := p.conditional()
+			if err != nil {
+				return nil, err
+			}
+	
+			expr = &Binary{Left: expr, Operator: &operator, Right: right}
 		}
-
-		expr = &Binary{Left: expr, Operator: &operator, Right: right}
 	}
 
 	return expr, nil
@@ -665,7 +724,7 @@ func (p *Parser) unary() (Expr, error) {
 	return p.call()
 }
 
-// call -> primary ( "(" arguments? ")" )*
+// call -> primary ( "(" arguments? ")" | "." IDENTIFIER )*
 func (p *Parser) call() (Expr, error) {
 	expr, err := p.primary()
 	if err != nil {
@@ -687,6 +746,13 @@ func (p *Parser) call() (Expr, error) {
 			if err != nil {
 				return nil, err
 			}
+		} else if p.match(DOT) {
+			name, err := p.consume(IDENTIFIER, "Expect property name after '.'.")
+			if err != nil {
+				return nil, err
+			}
+
+			expr = &Get{Object: expr, Name: &name}
 		} else {
 			break
 		}
@@ -699,6 +765,8 @@ func (p *Parser) call() (Expr, error) {
 // finishCall parses the argument list of the function call.
 func (p *Parser) finishCall(callee Expr) (Expr, error) {
 	arguments :=  []Expr{}
+
+	p.disableCommaExpr = true
 
 	// check if the call has arguments or not.
 	// the next token is ')' in the zero-argument case.
@@ -726,6 +794,8 @@ func (p *Parser) finishCall(callee Expr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	p.disableCommaExpr = false
 
 	return &Call{Callee: callee, Paren: &paren, Arguments: arguments}, nil
 }
@@ -764,6 +834,9 @@ func (p *Parser) primary() (Expr, error) {
 		}
 
 		return fn, nil
+	case p.match(THIS):
+		kw := p.previous()
+		return &This{Keyword: &kw}, nil
 	}
 
 	return nil, p.error(p.peek(), "Expect expression.")

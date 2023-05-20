@@ -56,6 +56,27 @@ func (i *Interpreter) InterpretREPL(expression Expr) string {
 
 /* Implement StmtVisitor interface */
 
+func (i *Interpreter) VisitClassStmt(stmt *Class) error {
+	i.environment.Define(stmt.Name.Lexeme, nil)
+
+	methods := map[string]*LoxFunction{}
+	for _, method := range stmt.Methods {
+		isInitializer := method.Name.Lexeme == "init"
+		function := &LoxFunction{method.Name.Lexeme, &method.Function, i.environment, isInitializer}
+		methods[method.Name.Lexeme] = function
+	}
+
+	class := NewLoxClass(stmt.Name.Lexeme, methods)
+	// That two-stage variable binding process allows references to the
+	// class inside its own methods.
+	err := i.environment.Assign(stmt.Name, class)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (i *Interpreter) VisitReturnStmt(stmt *Return) error {
 	var value interface{}
 	var err error
@@ -74,7 +95,7 @@ func (i *Interpreter) VisitReturnStmt(stmt *Return) error {
 func (i *Interpreter) VisitFunctionStmt(stmt *Function) error {
 	// This is the environment that is active when the function is declared not when it’s called.
 	fnName := stmt.Name.Lexeme
-	function := &LoxFunction{Name: fnName, Declaration: &stmt.Function, Closure: i.environment}
+	function := &LoxFunction{Name: fnName, Declaration: &stmt.Function, Closure: i.environment, isInitializer: false}
 
 	i.environment.Define(fnName, function)
 
@@ -183,6 +204,44 @@ func (i *Interpreter) executeBlock(statements []Stmt, environment *Environment) 
 }
 
 /* Implement ExprVisitor interface */
+
+func (i *Interpreter) VisitThisExpr(expr *This) (interface{}, error) {
+	return i.lookUpVariable(expr.Keyword, expr)
+}
+
+func (i *Interpreter) VisitSetExpr(expr *Set) (interface{}, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	instance, isLoxInstance := object.(*LoxInstance)
+	if !isLoxInstance {
+		return nil, NewRuntimeError(expr.Name, "Only instances have fields.")
+	}
+
+	val, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	instance.Set(expr.Name, val)
+	return val, nil
+}
+
+func (i *Interpreter) VisitGetExpr(expr *Get) (interface{}, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	instance, isLoxInstance := object.(*LoxInstance)
+	if isLoxInstance {
+		return instance.Get(expr.Name)
+	}
+
+	return nil, NewRuntimeError(expr.Name, "Only instances have properties.")
+}
 
 func (i *Interpreter) VisitFunctionExprExpr(expr *FunctionExpr) (interface{}, error) {
 	return &LoxFunction{Name: "", Declaration: expr, Closure: i.environment}, nil

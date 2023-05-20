@@ -1,9 +1,17 @@
 package glox
 
+type ClassType int
+const (
+	ClassType_NONE ClassType = iota
+	ClassType_CLASS
+)
+
 type FunctionType int
 const (
-	NONE FunctionType = iota
-	FUNCTION
+	FunctionType_NONE FunctionType = iota
+	FunctionType_FUNCTION
+	FunctionType_METHOD
+	FunctionType_INITIALIZER
 )
 
 // Resolver does a single walk over the tree to resolve all of the variables it contains.
@@ -33,6 +41,11 @@ type Resolver struct {
 	// currentFunction marks whether or not the code we are currently visiting
 	// is inside a function declaration.
 	currentFunction FunctionType
+
+	// currentClass tells us if we are currently inside a class declaration
+	// while traversing the syntax tree. It starts out NONE which means we
+	// aren’t in one.
+	currentClass	ClassType
 }
 
 func NewResolver(interpreter *Interpreter, errorPrinter *ErrorPrinter) *Resolver {
@@ -40,8 +53,35 @@ func NewResolver(interpreter *Interpreter, errorPrinter *ErrorPrinter) *Resolver
 		interpreter: interpreter,
 		errorPrinter: errorPrinter,
 		scopes: Stack[map[string]bool](),
-		currentFunction: NONE,
+		currentFunction: FunctionType_NONE,
 	}
+}
+
+func (r *Resolver) VisitClassStmt(stmt *Class) error {
+	enclosingClass := r.currentClass
+	r.currentClass = ClassType_CLASS
+
+	r.declare(stmt.Name)
+	r.define(stmt.Name)
+
+	r.beginScope()
+	r.scopes.Peek()["this"] = true
+
+	for _, method := range stmt.Methods {
+		r.declare(method.Name)
+		r.define(method.Name)
+		declaration := FunctionType_METHOD
+		if method.Name.Lexeme == "init" {
+			declaration = FunctionType_INITIALIZER
+		}
+		r.resolveFunction(&method.Function, declaration)
+	}
+
+	r.endScope()
+
+	r.currentClass = enclosingClass
+
+	return nil
 }
 
 // VisitFunctionStmt declare and define the name of the function in the current scope.
@@ -51,7 +91,7 @@ func (r *Resolver) VisitFunctionStmt(stmt *Function) error {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 
-	r.resolveFunction(&stmt.Function, FUNCTION)
+	r.resolveFunction(&stmt.Function, FunctionType_FUNCTION)
 
 	return nil
 }
@@ -101,12 +141,17 @@ func (r *Resolver) VisitWhileStmt(stmt *While) error {
 }
 
 func (r *Resolver) VisitReturnStmt(stmt *Return) error {
-	if r.currentFunction == NONE {
+	if r.currentFunction == FunctionType_NONE {
 		r.errorPrinter.TokenError(*stmt.Keyword, "Can't return from top-level code.")
 		return nil
 	}
 
 	if stmt.Value != nil {
+		if r.currentFunction == FunctionType_INITIALIZER {
+			r.errorPrinter.TokenError(*stmt.Keyword, "Can't return a value from an initializer.")
+			return nil
+		}
+
 		r.resolveExpression(stmt.Value)
 	}
 
@@ -132,6 +177,30 @@ func (r *Resolver) VisitExpressionStmt(stmt *Expression) error {
 	r.resolveExpression(stmt.Expression)
 
 	return nil
+}
+
+func (r *Resolver) VisitThisExpr(expr *This) (interface{}, error) {
+	if r.currentClass == ClassType_NONE {
+		r.errorPrinter.TokenError(*expr.Keyword, "Can't use 'this' outside of a class.")
+		return nil, nil
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
+
+	return nil, nil
+}
+
+func (r *Resolver) VisitSetExpr(expr *Set) (interface{}, error) {
+	r.resolveExpression(expr.Value)
+	r.resolveExpression(expr.Object)
+
+	return nil, nil
+}
+
+func (r *Resolver) VisitGetExpr(expr *Get) (interface{}, error) {
+	r.resolveExpression(expr.Object)
+
+	return nil, nil
 }
 
 func (r *Resolver) VisitAssignExpr(expr *Assign) (interface{}, error) {
@@ -160,7 +229,7 @@ func (r *Resolver) VisitVariableExpr(expr *Variable) (interface{}, error) {
 }
 
 func (r *Resolver) VisitFunctionExprExpr(expr *FunctionExpr) (interface{}, error) {
-	r.resolveFunction(expr, FUNCTION)
+	r.resolveFunction(expr, FunctionType_FUNCTION)
 	return nil, nil
 }
 
